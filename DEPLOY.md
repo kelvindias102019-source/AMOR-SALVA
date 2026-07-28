@@ -25,3 +25,7 @@ Cadastre o webhook:
 - Build Command: `npm run build`
 - Output Directory: `dist`
 - Variável: `VITE_API_BASE_URL=https://SEU-BACKEND.onrender.com`
+
+
+## VSL
+O vídeo da campanha está em `frontend/public/assets/historia-amor-salva.mp4`. A barra abaixo do vídeo usa progresso visual não linear e só chega a 100% quando o vídeo termina.

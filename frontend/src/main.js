@@ -1,7 +1,7 @@
 import './styles.css';
 
 const API = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
-const VALUES = [10, 30, 50, 100, 200, 300, 500, 700, 1000];
+const VALUES = [10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000];
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const slides = [1,2,3,4,5,6,7,8,9,10].map(n => `/assets/${n}.png`);
 const supporters = [
@@ -27,12 +27,31 @@ app.innerHTML = `
   <main id="inicio">
     <section class="hero page-shell">
       <img class="hero-banner" src="/assets/banner-principal.jpg" alt="Precisamos da sua ajuda para ter onde morar">
+
+      <section class="vsl-card" aria-labelledby="vslTitle">
+        <div class="vsl-heading">
+          <span class="vsl-kicker">ASSISTA À HISTÓRIA</span>
+          <h2 id="vslTitle">Entenda por que essa ajuda é tão urgente</h2>
+          <p>Em poucos minutos, conheça a realidade de Maria Sônia e Ana Júlia.</p>
+        </div>
+        <div class="video-shell">
+          <video id="campaignVideo" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" poster="/assets/banner-principal.jpg">
+            <source src="/assets/historia-amor-salva.mp4" type="video/mp4">
+            Seu navegador não suporta vídeo HTML5.
+          </video>
+          <div class="video-progress" aria-hidden="true">
+            <span id="fakeVideoProgress"></span>
+          </div>
+        </div>
+        <p class="video-note"><span></span> Assista até o fim para conhecer toda a história.</p>
+      </section>
+
       <div class="hero-copy">
         <span class="eyebrow">CAMPANHA SOLIDÁRIA • AMOR SALVA</span>
         <h1>Ajude Maria Sônia e Ana Júlia a manterem um lar seguro</h1>
         <p>Maria Sônia dedica todos os dias aos cuidados da filha Ana Júlia, que vive com paralisia cerebral severa e precisa de atenção integral. Hoje, elas enfrentam despesas essenciais e o risco de perder a moradia.</p>
         <div class="hero-actions">
-          <button class="button button-primary" data-donate>Quero ajudar agora</button>
+          <button class="button button-primary" data-donate>Fazer minha parte</button>
           <a class="button button-ghost" href="#historia">Conhecer a história</a>
         </div>
       </div>
@@ -53,13 +72,15 @@ app.innerHTML = `
     </section>
 
     <section class="donation-section page-shell" id="doar">
-      <div class="section-heading centered">
-        <span class="eyebrow">ESCOLHA COMO AJUDAR</span>
-        <h2>Qualquer valor pode transformar o dia delas</h2>
-        <p>Toque em um valor para continuar. O nome é opcional e a doação pode ser anônima.</p>
-      </div>
-      <div class="donation-value-grid">
-        ${VALUES.map(v => `<button data-quick-donate="${v}">${money.format(v).replace(',00','')}</button>`).join('')}
+      <div class="donation-callout">
+        <div>
+          <span class="eyebrow">SUA AJUDA FAZ DIFERENÇA</span>
+          <h2>Ajude a manter um lar seguro e os cuidados essenciais</h2>
+          <p>Ao tocar no botão, você escolhe o valor dentro de uma janela segura. O nome é opcional e a contribuição pode ser anônima.</p>
+        </div>
+        <button class="button button-primary donation-main-button" data-donate>
+          <span class="donation-heart">♥</span> Fazer minha parte
+        </button>
       </div>
       <div class="trust-row">
         <span>✓ Pagamento via PIX</span>
@@ -85,7 +106,7 @@ app.innerHTML = `
             <li>Garantir medicamentos de uso contínuo</li>
             <li>Custear alimentação clínica e cuidados diários</li>
           </ul>
-          <button class="button button-primary" data-donate>Fazer parte dessa corrente</button>
+          <button class="button button-primary" data-donate>Fazer minha parte</button>
         </div>
       </div>
     </section>
@@ -151,12 +172,12 @@ app.innerHTML = `
       <div class="page-shell final-card">
         <img src="/assets/logo-amor-salva.png" alt="Amor Salva">
         <div><span class="eyebrow">AMOR SALVA</span><h2>Juntos podemos aliviar esse peso</h2><p>Escolha um valor e ajude Maria Sônia e Ana Júlia a seguirem com mais segurança e dignidade.</p></div>
-        <button class="button button-primary" data-donate>Doar agora</button>
+        <button class="button button-primary" data-donate>Fazer minha parte</button>
       </div>
     </section>
   </main>
 
-  <button class="sticky-donate" data-donate>Doar agora</button>
+  <button class="sticky-donate" data-donate>Fazer minha parte</button>
 
   <div class="modal" id="modal" aria-hidden="true">
     <div class="backdrop" data-close></div>
@@ -280,6 +301,38 @@ function startPolling(id) {
   };
   check();
   poll = setInterval(check, 5000);
+}
+
+const campaignVideo = document.querySelector('#campaignVideo');
+const fakeVideoProgress = document.querySelector('#fakeVideoProgress');
+
+function updateVisualVideoProgress() {
+  if (!campaignVideo || !fakeVideoProgress) return;
+  const duration = Number(campaignVideo.duration);
+  const current = Number(campaignVideo.currentTime);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    fakeVideoProgress.style.width = '0%';
+    return;
+  }
+
+  if (campaignVideo.ended || current >= duration - 0.05) {
+    fakeVideoProgress.style.width = '100%';
+    return;
+  }
+
+  const realRatio = Math.max(0, Math.min(0.999, current / duration));
+  // Progresso visual não linear: avança rápido no começo e desacelera perto do fim.
+  const visualRatio = Math.min(0.97, 0.97 * (1 - Math.pow(1 - realRatio, 3.2)));
+  fakeVideoProgress.style.width = `${(visualRatio * 100).toFixed(2)}%`;
+}
+
+if (campaignVideo) {
+  ['loadedmetadata', 'timeupdate', 'seeking', 'seeked', 'play', 'pause'].forEach(eventName => {
+    campaignVideo.addEventListener(eventName, updateVisualVideoProgress);
+  });
+  campaignVideo.addEventListener('ended', () => {
+    fakeVideoProgress.style.width = '100%';
+  });
 }
 
 async function loadCampaign() {
