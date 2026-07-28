@@ -206,14 +206,62 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section class="faq-section page-shell">
-      <div class="section-heading">
-        <span class="eyebrow">TRANSPARÊNCIA</span>
-        <h2>Dúvidas frequentes</h2>
+    <section class="updates-section page-shell">
+      <div class="info-card">
+        <div class="info-heading">
+          <span class="info-icon" aria-hidden="true">◷</span>
+          <h2>Acompanhe as Atualizações</h2>
+        </div>
+        <div class="updates-list">
+          <article class="update-item">
+            <span class="update-date">14 de Maio</span>
+            <h3>Benefício cortado</h3>
+            <p>O auxílio governamental essencial foi suspenso temporariamente, gerando pânico imediato na família.</p>
+          </article>
+          <article class="update-item">
+            <span class="update-date">01 de Maio</span>
+            <h3>Risco de despejo</h3>
+            <p>Sem recursos para o aluguel adaptado para acessibilidade, a família recebeu uma notificação de desocupação.</p>
+          </article>
+        </div>
       </div>
-      <details open><summary>Como os recursos serão usados?</summary><p>Em moradia, alimentação, fraldas, medicamentos, insumos e necessidades diretamente relacionadas aos cuidados de Ana Júlia.</p></details>
-      <details><summary>Posso doar de forma anônima?</summary><p>Sim. O nome é opcional e o pagamento pode ser gerado sem identificação pública.</p></details>
-      <details><summary>Como o pagamento é confirmado?</summary><p>O sistema acompanha a cobrança e confirma a doação quando o gateway informa o pagamento.</p></details>
+    </section>
+
+    <section class="trust-faq-section page-shell">
+      <div class="info-card">
+        <div class="info-heading">
+          <span class="info-icon" aria-hidden="true">🛡️</span>
+          <h2>Transparência e Respostas</h2>
+        </div>
+        <div class="trust-badges">
+          <article class="trust-badge">
+            <span class="trust-badge-icon" aria-hidden="true">🛡️</span>
+            <strong>Campanha 100% real</strong>
+          </article>
+          <article class="trust-badge">
+            <span class="trust-badge-icon" aria-hidden="true">🔒</span>
+            <strong>Doação protegida</strong>
+          </article>
+          <article class="trust-badge">
+            <span class="trust-badge-icon" aria-hidden="true">📄</span>
+            <strong>Contas auditadas</strong>
+          </article>
+        </div>
+        <div class="faq-list">
+          <details open>
+            <summary>A doação é segura?</summary>
+            <p>Sim. O pagamento é gerado em ambiente protegido e a confirmação acontece somente após o sistema receber o retorno oficial da cobrança.</p>
+          </details>
+          <details>
+            <summary>Como os fundos serão usados?</summary>
+            <p>Os recursos serão direcionados para moradia, alimentação clínica, fraldas, medicamentos, higiene e demais necessidades ligadas à rotina de Ana Júlia e Maria Sônia.</p>
+          </details>
+          <details>
+            <summary>Posso doar outros valores?</summary>
+            <p>Sim. Os valores sugeridos foram pensados para facilitar a contribuição, mas a campanha pode receber outros apoios conforme a configuração do pagamento.</p>
+          </details>
+        </div>
+      </div>
     </section>
 
     <section class="final-cta">
