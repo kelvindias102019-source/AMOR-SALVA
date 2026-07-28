@@ -25,11 +25,22 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <header class="site-header">
     <div class="page-shell header-inner">
-      <a class="brand" href="#inicio" aria-label="Amor Salva">
-        <img src="/assets/logo-amor-salva.png" alt="Amor Salva">
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="siteMenu">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="brand" href="#inicio" aria-label="Amor Salva — início">
+        <img src="/assets/logo-amor-salva-icon.png" alt="Símbolo do Instituto Amor Salva">
+        <span class="brand-copy"><strong>Amor Salva</strong><small>Instituto de apoio solidário</small></span>
       </a>
-
+      <span class="header-spacer" aria-hidden="true"></span>
     </div>
+    <nav class="mobile-menu" id="siteMenu" aria-label="Navegação principal">
+      <div class="page-shell mobile-menu-inner">
+        <a href="#quem-somos">Quem somos</a>
+        <a href="#campanha">Campanha</a>
+        <a href="#transparencia">Transparência</a>
+      </div>
+    </nav>
   </header>
 
   <main id="inicio">
@@ -40,7 +51,7 @@ app.innerHTML = `
           <p>Veja por que esta família precisa de apoio para manter a moradia e os cuidados essenciais.</p>
         </div>
         <div class="video-stage" id="videoStage">
-          <video id="campaignVideo" muted playsinline preload="auto" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. Reprodução automática sem áudio; toque para pausar ou continuar.">
+          <video id="campaignVideo" playsinline preload="auto" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. O site tentará iniciar automaticamente com áudio; toque para pausar ou continuar.">
             <source src="/assets/historia-amor-salva.mp4" type="video/mp4">
             Seu navegador não suporta vídeo HTML5.
           </video>
@@ -61,7 +72,7 @@ app.innerHTML = `
       </section>
     </section>
 
-    <section class="hero page-shell">
+    <section class="hero page-shell" id="campanha">
       <div class="hero-copy">
         <span class="eyebrow">CAMPANHA SOLIDÁRIA • AMOR SALVA</span>
         <h2>Ajude Maria Sônia e Ana Júlia a manterem um lar seguro</h2>
@@ -102,6 +113,23 @@ app.innerHTML = `
         <span>✓ Pagamento via PIX</span>
         <span>✓ Nome opcional</span>
         <span>✓ Confirmação automática</span>
+      </div>
+    </section>
+
+    <section class="institute-profile page-shell" aria-labelledby="instituteProfileTitle">
+      <div class="institute-profile-card">
+        <div class="institute-profile-logo">
+          <img src="/assets/logo-amor-salva-icon.png" alt="Instituto Amor Salva">
+        </div>
+        <div class="institute-profile-copy">
+          <span class="eyebrow">RESPONSÁVEL PELA CAMPANHA</span>
+          <h2 id="instituteProfileTitle">Instituto Amor Salva</h2>
+          <ul class="institute-data">
+            <li><span aria-hidden="true">@</span><strong>@instituto_amor_salva</strong></li>
+            <li><span aria-hidden="true">⌖</span><strong>Belo Horizonte, Minas Gerais</strong></li>
+            <li><span aria-hidden="true">▣</span><strong>CNPJ: 77.260.528/0001-24</strong></li>
+          </ul>
+        </div>
       </div>
     </section>
 
@@ -227,7 +255,7 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section class="trust-faq-section page-shell">
+    <section class="trust-faq-section page-shell" id="transparencia">
       <div class="info-card">
         <div class="info-heading">
           <span class="info-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
@@ -270,6 +298,23 @@ app.innerHTML = `
       </div>
     </section>
 
+    <section class="about-institute" id="quem-somos">
+      <div class="page-shell about-institute-grid">
+        <div class="about-institute-mark">
+          <img src="/assets/logo-amor-salva-icon.png" alt="Instituto Amor Salva">
+        </div>
+        <div class="about-institute-copy">
+          <span class="eyebrow">QUEM SOMOS</span>
+          <h2>Um instituto criado para transformar solidariedade em apoio real</h2>
+          <p>O Instituto Amor Salva atua mobilizando pessoas em torno de famílias que enfrentam situações urgentes, conectando quem precisa de ajuda a quem deseja colaborar.</p>
+          <p>Nossa missão é dar visibilidade a histórias que não podem esperar e direcionar apoio para necessidades essenciais, como moradia, alimentação, saúde, higiene e cuidados contínuos.</p>
+          <div class="about-institute-values">
+            <span>Transparência</span><span>Acolhimento</span><span>Responsabilidade</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="final-cta">
       <div class="page-shell final-card">
         <img src="/assets/logo-amor-salva.png" alt="Amor Salva">
@@ -278,6 +323,21 @@ app.innerHTML = `
       </div>
     </section>
   </main>
+
+  <footer class="site-footer">
+    <div class="page-shell footer-inner">
+      <a class="footer-brand" href="#inicio">
+        <img src="/assets/logo-amor-salva-icon.png" alt="Instituto Amor Salva">
+        <span><strong>Instituto Amor Salva</strong><small>Solidariedade que acolhe</small></span>
+      </a>
+      <nav class="footer-nav" aria-label="Links do rodapé">
+        <a href="#quem-somos">Quem somos</a>
+        <a href="#campanha">Campanha</a>
+        <a href="#transparencia">Transparência</a>
+      </nav>
+      <p>© ${new Date().getFullYear()} Instituto Amor Salva. Todos os direitos reservados.</p>
+    </div>
+  </footer>
 
   <button class="sticky-donate" data-donate>Fazer minha parte</button>
 
@@ -313,6 +373,21 @@ app.innerHTML = `
 let selectedAmount = null;
 let poll = null;
 const modal = document.querySelector('#modal');
+const menuToggle = document.querySelector('#menuToggle');
+const siteMenu = document.querySelector('#siteMenu');
+const closeSiteMenu = () => {
+  siteMenu?.classList.remove('is-open');
+  menuToggle?.classList.remove('is-open');
+  menuToggle?.setAttribute('aria-expanded', 'false');
+};
+menuToggle?.addEventListener('click', () => {
+  const open = !siteMenu?.classList.contains('is-open');
+  siteMenu?.classList.toggle('is-open', open);
+  menuToggle.classList.toggle('is-open', open);
+  menuToggle.setAttribute('aria-expanded', String(open));
+});
+document.querySelectorAll('#siteMenu a, .footer-nav a').forEach(link => link.addEventListener('click', closeSiteMenu));
+
 const steps = [...document.querySelectorAll('.step')];
 const showStep = id => steps.forEach(s => s.classList.toggle('active', s.id === id));
 
@@ -501,8 +576,9 @@ if (campaignVideo) {
   campaignVideo.controls = false;
   campaignVideo.removeAttribute('controls');
   campaignVideo.autoplay = false;
-  campaignVideo.muted = true;
-  campaignVideo.defaultMuted = true;
+  campaignVideo.muted = false;
+  campaignVideo.defaultMuted = false;
+  campaignVideo.volume = 1;
   campaignVideo.playsInline = true;
 
   const startVideoAutomatically = () => {
@@ -520,10 +596,23 @@ if (campaignVideo) {
     window.setTimeout(async () => {
       autoplayCountdownActive = false;
       try {
+        // Primeira tentativa: iniciar automaticamente já com o áudio ligado.
+        campaignVideo.muted = false;
+        campaignVideo.volume = 1;
         await campaignVideo.play();
+        updateSoundInterface();
       } catch {
-        if (label) label.textContent = 'Toque para assistir';
-        updateVideoInterface();
+        // Navegadores móveis costumam bloquear autoplay com som.
+        // Nesse caso, inicia sem áudio para não deixar a VSL parada.
+        try {
+          campaignVideo.muted = true;
+          await campaignVideo.play();
+          if (label) label.textContent = 'Toque em “Ativar áudio” para ouvir';
+          updateSoundInterface();
+        } catch {
+          if (label) label.textContent = 'Toque para assistir';
+          updateVideoInterface();
+        }
       }
     }, 2000);
   };
