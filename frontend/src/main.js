@@ -26,7 +26,16 @@ app.innerHTML = `
 
   <main id="inicio">
     <section class="hero page-shell">
-      <img class="hero-banner" src="/assets/banner-principal.jpg" alt="Precisamos da sua ajuda para ter onde morar">
+      <div class="hero-copy">
+        <span class="eyebrow">CAMPANHA SOLIDÁRIA • AMOR SALVA</span>
+        <h1>Ajude Maria Sônia e Ana Júlia a manterem um lar seguro</h1>
+        <img class="hero-banner" src="/assets/banner-principal.jpg" alt="Precisamos da sua ajuda para ter onde morar">
+        <p>Maria Sônia dedica todos os dias aos cuidados da filha Ana Júlia, que vive com paralisia cerebral severa e precisa de atenção integral. Hoje, elas enfrentam despesas essenciais e o risco de perder a moradia.</p>
+        <div class="hero-actions">
+          <button class="button button-primary" data-donate>Fazer minha parte</button>
+          <a class="button button-ghost" href="#historia">Conhecer a história</a>
+        </div>
+      </div>
 
       <section class="vsl-card" aria-labelledby="vslTitle">
         <div class="vsl-heading">
@@ -34,27 +43,28 @@ app.innerHTML = `
           <h2 id="vslTitle">Entenda por que essa ajuda é tão urgente</h2>
           <p>Em poucos minutos, conheça a realidade de Maria Sônia e Ana Júlia.</p>
         </div>
-        <div class="video-shell">
-          <video id="campaignVideo" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" poster="/assets/banner-principal.jpg">
+        <div class="video-stage" id="videoStage">
+          <video id="campaignVideo" playsinline preload="metadata" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. Toque para reproduzir ou pausar.">
             <source src="/assets/historia-amor-salva.mp4" type="video/mp4">
             Seu navegador não suporta vídeo HTML5.
           </video>
-          <div class="video-progress" aria-hidden="true">
-            <span id="fakeVideoProgress"></span>
-          </div>
+          <button class="video-play-overlay" id="videoPlayOverlay" type="button" aria-label="Reproduzir vídeo">
+            <span class="video-play-icon" aria-hidden="true"></span>
+            <strong>Toque para assistir</strong>
+          </button>
+        </div>
+        <div class="video-progress" aria-label="Progresso visual do vídeo">
+          <span id="fakeVideoProgress"></span>
+        </div>
+        <div class="video-control-row">
+          <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="false">
+            <span id="soundIcon" aria-hidden="true">🔊</span>
+            <span id="soundLabel">Áudio ligado</span>
+          </button>
+          <span class="video-status" id="videoStatus">Toque no vídeo para começar</span>
         </div>
         <p class="video-note"><span></span> Assista até o fim para conhecer toda a história.</p>
       </section>
-
-      <div class="hero-copy">
-        <span class="eyebrow">CAMPANHA SOLIDÁRIA • AMOR SALVA</span>
-        <h1>Ajude Maria Sônia e Ana Júlia a manterem um lar seguro</h1>
-        <p>Maria Sônia dedica todos os dias aos cuidados da filha Ana Júlia, que vive com paralisia cerebral severa e precisa de atenção integral. Hoje, elas enfrentam despesas essenciais e o risco de perder a moradia.</p>
-        <div class="hero-actions">
-          <button class="button button-primary" data-donate>Fazer minha parte</button>
-          <a class="button button-ghost" href="#historia">Conhecer a história</a>
-        </div>
-      </div>
     </section>
 
     <section class="progress-wrap page-shell" aria-label="Progresso da campanha">
@@ -305,6 +315,12 @@ function startPolling(id) {
 
 const campaignVideo = document.querySelector('#campaignVideo');
 const fakeVideoProgress = document.querySelector('#fakeVideoProgress');
+const videoStage = document.querySelector('#videoStage');
+const videoPlayOverlay = document.querySelector('#videoPlayOverlay');
+const soundToggle = document.querySelector('#soundToggle');
+const soundIcon = document.querySelector('#soundIcon');
+const soundLabel = document.querySelector('#soundLabel');
+const videoStatus = document.querySelector('#videoStatus');
 
 function updateVisualVideoProgress() {
   if (!campaignVideo || !fakeVideoProgress) return;
@@ -321,18 +337,69 @@ function updateVisualVideoProgress() {
   }
 
   const realRatio = Math.max(0, Math.min(0.999, current / duration));
-  // Progresso visual não linear: avança rápido no começo e desacelera perto do fim.
-  const visualRatio = Math.min(0.97, 0.97 * (1 - Math.pow(1 - realRatio, 3.2)));
-  fakeVideoProgress.style.width = `${(visualRatio * 100).toFixed(2)}%`;
+  let visualRatio;
+  if (realRatio <= 0.72) {
+    // Chega rapidamente a 93% durante os primeiros 72% do vídeo.
+    visualRatio = (realRatio / 0.72) * 0.93;
+  } else {
+    // Nos minutos finais, avança lentamente e fica abaixo de 100% até o término real.
+    const finalPhase = (realRatio - 0.72) / 0.28;
+    visualRatio = 0.93 + 0.069 * (1 - Math.pow(1 - finalPhase, 2.6));
+  }
+  fakeVideoProgress.style.width = `${Math.min(99.9, visualRatio * 100).toFixed(2)}%`;
+}
+
+function updateVideoInterface() {
+  if (!campaignVideo) return;
+  const playing = !campaignVideo.paused && !campaignVideo.ended;
+  videoPlayOverlay?.classList.toggle('is-hidden', playing);
+  if (videoPlayOverlay) {
+    videoPlayOverlay.setAttribute('aria-label', playing ? 'Pausar vídeo' : 'Reproduzir vídeo');
+    const label = videoPlayOverlay.querySelector('strong');
+    if (label) label.textContent = campaignVideo.ended ? 'Assistir novamente' : (campaignVideo.paused && campaignVideo.currentTime > 0 ? 'Continuar assistindo' : 'Toque para assistir');
+  }
+  if (videoStatus) videoStatus.textContent = campaignVideo.ended ? 'Vídeo concluído' : (playing ? 'Reproduzindo' : 'Vídeo pausado');
+}
+
+async function toggleVideoPlayback() {
+  if (!campaignVideo) return;
+  try {
+    if (campaignVideo.ended) campaignVideo.currentTime = 0;
+    if (campaignVideo.paused) await campaignVideo.play();
+    else campaignVideo.pause();
+  } catch {}
+  updateVideoInterface();
+}
+
+function updateSoundInterface() {
+  if (!campaignVideo) return;
+  const muted = campaignVideo.muted || campaignVideo.volume === 0;
+  soundToggle?.setAttribute('aria-pressed', String(muted));
+  if (soundIcon) soundIcon.textContent = muted ? '🔇' : '🔊';
+  if (soundLabel) soundLabel.textContent = muted ? 'Ativar áudio' : 'Áudio ligado';
 }
 
 if (campaignVideo) {
-  ['loadedmetadata', 'timeupdate', 'seeking', 'seeked', 'play', 'pause'].forEach(eventName => {
+  campaignVideo.controls = false;
+  campaignVideo.removeAttribute('controls');
+  campaignVideo.addEventListener('click', toggleVideoPlayback);
+  videoPlayOverlay?.addEventListener('click', toggleVideoPlayback);
+  soundToggle?.addEventListener('click', () => {
+    campaignVideo.muted = !campaignVideo.muted;
+    updateSoundInterface();
+  });
+  ['loadedmetadata', 'timeupdate', 'seeking', 'seeked'].forEach(eventName => {
     campaignVideo.addEventListener(eventName, updateVisualVideoProgress);
   });
+  ['play', 'pause', 'ended'].forEach(eventName => {
+    campaignVideo.addEventListener(eventName, updateVideoInterface);
+  });
+  campaignVideo.addEventListener('volumechange', updateSoundInterface);
   campaignVideo.addEventListener('ended', () => {
     fakeVideoProgress.style.width = '100%';
   });
+  updateVideoInterface();
+  updateSoundInterface();
 }
 
 async function loadCampaign() {

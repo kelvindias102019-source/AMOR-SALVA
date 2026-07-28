@@ -168,3 +168,36 @@ input{margin-top:7px;border:1px solid #c8d5e4;border-radius:12px;padding:14px}
   .donation-main-button{width:auto;min-width:240px}
   .value-grid{grid-template-columns:repeat(3,1fr)}
 }
+
+/* VSL profissional e nova ordem do hero */
+.hero-copy{padding:18px 4px 4px}
+.hero-copy .hero-banner{margin:20px 0 18px}
+.hero-copy>p{margin-top:0}
+.vsl-card{margin-top:26px}
+.video-stage{position:relative;width:min(820px,100%);margin-inline:auto;overflow:hidden;border-radius:18px 18px 0 0;background:#020916;box-shadow:0 14px 34px rgba(3,21,57,.22);cursor:pointer;isolation:isolate}
+.video-stage video{display:block;width:100%;aspect-ratio:4/3;background:#000;object-fit:contain;cursor:pointer;-webkit-user-select:none;user-select:none}
+.video-stage video::-webkit-media-controls{display:none!important}
+.video-stage video::-webkit-media-controls-enclosure{display:none!important}
+.video-stage video::-webkit-media-controls-panel{display:none!important}
+.video-play-overlay{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border:0;background:linear-gradient(180deg,rgba(2,9,22,.18),rgba(2,9,22,.62));color:#fff;cursor:pointer;transition:opacity .2s ease,visibility .2s ease}
+.video-play-overlay.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+.video-play-overlay strong{font-size:.94rem;letter-spacing:.01em;text-shadow:0 2px 10px rgba(0,0,0,.45)}
+.video-play-icon{display:block;width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.96);box-shadow:0 12px 30px rgba(0,0,0,.3);position:relative}
+.video-play-icon::after{content:"";position:absolute;left:29px;top:22px;border-left:23px solid var(--navy-2);border-top:14px solid transparent;border-bottom:14px solid transparent}
+.video-progress{position:relative;width:min(820px,100%);height:11px;margin:0 auto;background:#dce5f0;border-radius:0 0 999px 999px;overflow:hidden;box-shadow:0 7px 18px rgba(6,38,95,.12)}
+.video-progress span{display:block;width:0;height:100%;background:linear-gradient(90deg,#ef3f48,#ff6b72);box-shadow:0 0 13px rgba(239,63,72,.55);transition:width .2s linear}
+.video-control-row{width:min(820px,100%);margin:12px auto 0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sound-toggle{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 13px;border:1px solid #cfdbeb;border-radius:12px;background:#fff;color:var(--navy);font-weight:850;cursor:pointer;box-shadow:0 5px 14px rgba(6,38,95,.06)}
+.sound-toggle:active{transform:scale(.98)}
+.video-status{font-size:.76rem;font-weight:750;color:var(--muted);text-align:right}
+@media(max-width:719px){
+  .hero-copy{padding-top:8px}
+  .hero-copy .hero-banner{margin:16px 0 16px;border-radius:17px}
+  .vsl-card{padding:14px;margin-top:22px}
+  .video-stage{border-radius:14px 14px 0 0}
+  .video-play-icon{width:62px;height:62px}
+  .video-play-icon::after{left:26px;top:19px;border-left-width:20px;border-top-width:12px;border-bottom-width:12px}
+  .video-control-row{align-items:stretch}
+  .sound-toggle{flex:0 0 auto;font-size:.82rem}
+  .video-status{display:flex;align-items:center;justify-content:flex-end;font-size:.7rem}
+}
