@@ -40,13 +40,13 @@ app.innerHTML = `
           <p>Veja por que esta família precisa de apoio para manter a moradia e os cuidados essenciais.</p>
         </div>
         <div class="video-stage" id="videoStage">
-          <video id="campaignVideo" autoplay muted playsinline preload="auto" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. Reprodução automática sem áudio; toque para pausar ou continuar.">
+          <video id="campaignVideo" muted playsinline preload="auto" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. Reprodução automática sem áudio; toque para pausar ou continuar.">
             <source src="/assets/historia-amor-salva.mp4" type="video/mp4">
             Seu navegador não suporta vídeo HTML5.
           </video>
           <button class="video-play-overlay" id="videoPlayOverlay" type="button" aria-label="Reproduzir vídeo">
             <span class="video-play-icon" aria-hidden="true"></span>
-            <strong>Toque para assistir</strong>
+            <strong id="videoCountdown">Começando em 2...</strong>
           </button>
         </div>
         <div class="video-progress" aria-label="Progresso visual do vídeo"><span id="fakeVideoProgress"></span></div>
@@ -410,6 +410,8 @@ const soundIcon = document.querySelector('#soundIcon');
 const soundLabel = document.querySelector('#soundLabel');
 const videoStatus = document.querySelector('#videoStatus');
 let visualProgressFrame = null;
+let autoplayCountdownActive = true;
+let autoplayCountdownStarted = false;
 
 function stopVisualProgressLoop() {
   if (visualProgressFrame !== null) {
@@ -472,9 +474,9 @@ function updateVideoInterface() {
   if (videoPlayOverlay) {
     videoPlayOverlay.setAttribute('aria-label', playing ? 'Pausar vídeo' : 'Reproduzir vídeo');
     const label = videoPlayOverlay.querySelector('strong');
-    if (label) label.textContent = campaignVideo.ended ? 'Assistir novamente' : (campaignVideo.paused && campaignVideo.currentTime > 0 ? 'Continuar assistindo' : 'Toque para assistir');
+    if (label && !autoplayCountdownActive) label.textContent = campaignVideo.ended ? 'Assistir novamente' : (campaignVideo.paused && campaignVideo.currentTime > 0 ? 'Continuar assistindo' : 'Toque para assistir');
   }
-  if (videoStatus) videoStatus.textContent = campaignVideo.ended ? 'Vídeo concluído' : (playing ? 'Reproduzindo' : 'Vídeo pausado');
+  if (videoStatus) videoStatus.textContent = autoplayCountdownActive ? 'O vídeo começará automaticamente' : (campaignVideo.ended ? 'Vídeo concluído' : (playing ? 'Reproduzindo' : 'Vídeo pausado'));
 }
 
 async function toggleVideoPlayback() {
@@ -498,19 +500,32 @@ function updateSoundInterface() {
 if (campaignVideo) {
   campaignVideo.controls = false;
   campaignVideo.removeAttribute('controls');
-  campaignVideo.autoplay = true;
+  campaignVideo.autoplay = false;
   campaignVideo.muted = true;
   campaignVideo.defaultMuted = true;
   campaignVideo.playsInline = true;
 
-  const startVideoAutomatically = async () => {
-    try {
-      await campaignVideo.play();
-    } catch {
-      // Alguns modos de economia de bateria ou navegadores podem bloquear até
-      // autoplay sem áudio. Nesse caso, o botão central continua disponível.
-      updateVideoInterface();
-    }
+  const startVideoAutomatically = () => {
+    if (autoplayCountdownStarted) return;
+    autoplayCountdownStarted = true;
+    const label = document.querySelector('#videoCountdown');
+    videoPlayOverlay?.classList.remove('is-hidden');
+    if (label) label.textContent = 'Começando em 2...';
+    if (videoStatus) videoStatus.textContent = 'O vídeo começará automaticamente';
+
+    window.setTimeout(() => {
+      if (label) label.textContent = 'Começando em 1...';
+    }, 1000);
+
+    window.setTimeout(async () => {
+      autoplayCountdownActive = false;
+      try {
+        await campaignVideo.play();
+      } catch {
+        if (label) label.textContent = 'Toque para assistir';
+        updateVideoInterface();
+      }
+    }, 2000);
   };
 
   campaignVideo.addEventListener('click', toggleVideoPlayback);
@@ -539,7 +554,6 @@ if (campaignVideo) {
   campaignVideo.addEventListener('ended', () => {
     fakeVideoProgress.style.width = '100%';
   });
-  campaignVideo.addEventListener('loadedmetadata', startVideoAutomatically, { once: true });
   updateVideoInterface();
   updateSoundInterface();
   startVideoAutomatically();
