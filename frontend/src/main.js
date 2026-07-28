@@ -40,7 +40,7 @@ app.innerHTML = `
           <p>Veja por que esta família precisa de apoio para manter a moradia e os cuidados essenciais.</p>
         </div>
         <div class="video-stage" id="videoStage">
-          <video id="campaignVideo" playsinline preload="metadata" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. Toque para reproduzir ou pausar.">
+          <video id="campaignVideo" autoplay muted playsinline preload="auto" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. Reprodução automática sem áudio; toque para pausar ou continuar.">
             <source src="/assets/historia-amor-salva.mp4" type="video/mp4">
             Seu navegador não suporta vídeo HTML5.
           </video>
@@ -498,6 +498,21 @@ function updateSoundInterface() {
 if (campaignVideo) {
   campaignVideo.controls = false;
   campaignVideo.removeAttribute('controls');
+  campaignVideo.autoplay = true;
+  campaignVideo.muted = true;
+  campaignVideo.defaultMuted = true;
+  campaignVideo.playsInline = true;
+
+  const startVideoAutomatically = async () => {
+    try {
+      await campaignVideo.play();
+    } catch {
+      // Alguns modos de economia de bateria ou navegadores podem bloquear até
+      // autoplay sem áudio. Nesse caso, o botão central continua disponível.
+      updateVideoInterface();
+    }
+  };
+
   campaignVideo.addEventListener('click', toggleVideoPlayback);
   videoPlayOverlay?.addEventListener('click', toggleVideoPlayback);
   soundToggle?.addEventListener('click', () => {
@@ -524,8 +539,10 @@ if (campaignVideo) {
   campaignVideo.addEventListener('ended', () => {
     fakeVideoProgress.style.width = '100%';
   });
+  campaignVideo.addEventListener('loadedmetadata', startVideoAutomatically, { once: true });
   updateVideoInterface();
   updateSoundInterface();
+  startVideoAutomatically();
 }
 
 async function loadCampaign() {
