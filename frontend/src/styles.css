@@ -274,3 +274,7 @@ input{margin-top:7px;border:1px solid #c8d5e4;border-radius:12px;padding:14px}
 @media(min-width:720px){
   .brand img{width:112px;height:92px}
 }
+
+
+/* Ajuste final da identidade visual */
+.header-inner .brand img{width:68px;height:58px}.header-inner .brand{gap:9px}.header-inner .brand-copy strong{font-size:1.72rem}.header-inner .brand-copy small{font-size:.54rem;letter-spacing:.09em}.institute-profile-logo-full{width:118px;height:104px;border-radius:20px;padding:8px}.institute-profile-logo-full img{width:100%;height:100%;object-fit:contain}.institute-profile-card{grid-template-columns:118px 1fr}.about-institute-mark-full{width:190px;height:150px;padding:10px;border-radius:26px}.about-institute-mark-full img{width:100%;height:100%;object-fit:contain}@media(max-width:380px){.header-inner .brand img{width:58px;height:50px}.header-inner .brand-copy strong{font-size:1.48rem}.header-inner .brand-copy small{font-size:.48rem}.institute-profile-card{grid-template-columns:96px 1fr}.institute-profile-logo-full{width:96px;height:88px}.about-institute-mark-full{width:170px;height:135px}}@media(min-width:720px){.header-inner .brand img{width:78px;height:66px}.header-inner .brand-copy strong{font-size:1.98rem}.institute-profile-card{grid-template-columns:160px 1fr}.institute-profile-logo-full{width:160px;height:132px}.about-institute-mark-full{width:230px;height:180px}.about-institute-grid{grid-template-columns:250px 1fr}}

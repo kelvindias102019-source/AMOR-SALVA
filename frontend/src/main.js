@@ -118,8 +118,8 @@ app.innerHTML = `
 
     <section class="institute-profile page-shell" aria-labelledby="instituteProfileTitle">
       <div class="institute-profile-card">
-        <div class="institute-profile-logo">
-          <img src="/assets/logo-amor-salva-icon.png" alt="Instituto Amor Salva">
+        <div class="institute-profile-logo institute-profile-logo-full">
+          <img src="/assets/logo-amor-salva-completa.png" alt="Instituto Amor Salva">
         </div>
         <div class="institute-profile-copy">
           <span class="eyebrow">RESPONSÁVEL PELA CAMPANHA</span>
@@ -300,8 +300,8 @@ app.innerHTML = `
 
     <section class="about-institute" id="quem-somos">
       <div class="page-shell about-institute-grid">
-        <div class="about-institute-mark">
-          <img src="/assets/logo-amor-salva-icon.png" alt="Instituto Amor Salva">
+        <div class="about-institute-mark about-institute-mark-full">
+          <img src="/assets/logo-amor-salva-completa.png" alt="Instituto Amor Salva">
         </div>
         <div class="about-institute-copy">
           <span class="eyebrow">QUEM SOMOS</span>
