@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: amor-salva-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: CAMPAIGN_GOAL
+        value: 130000
+      - key: CAMPAIGN_INITIAL_AMOUNT
+        value: 27847
