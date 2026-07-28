@@ -4,16 +4,15 @@ const API = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/
 const VALUES = [10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000];
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const slides = [
-  { src: '/assets/1.png', title: 'O suplemento faz parte da rotina', text: 'A alimentação clínica é importante para Ana Júlia manter as forças e receber o suporte nutricional necessário no dia a dia.' },
-  { src: '/assets/2.png', title: 'Mãe e filha enfrentam essa luta juntas', text: 'Maria Sônia dedica sua rotina aos cuidados da filha, acompanhando cada necessidade com atenção e carinho.' },
-  { src: '/assets/3.png', title: 'Cada contribuição ajuda de verdade', text: 'Mesmo uma doação de menor valor pode colaborar com fraldas, higiene, alimentação e outras despesas contínuas.' },
-  { src: '/assets/4.png', title: 'A preocupação com a moradia', text: 'A família precisa preservar um lugar seguro para viver e continuar os cuidados de Ana Júlia com mais estabilidade.' },
-  { src: '/assets/5.png', title: 'Moradia e tratamento não podem esperar', text: 'Sem apoio, as despesas da casa e dos cuidados essenciais ficam cada vez mais difíceis de manter.' },
-  { src: '/assets/6.png', title: 'Uma rotina marcada pela urgência', text: 'Os gastos são contínuos e a família precisa de apoio para não interromper itens indispensáveis.' },
-  { src: '/assets/7.png', title: 'Ana Júlia precisa de cuidados constantes', text: 'A condição dela exige atenção integral, alimentação adequada, higiene e acompanhamento diário.' },
-  { src: '/assets/8.png', title: 'O risco de perder o lar', text: 'A insegurança da moradia aumenta o peso vivido pela família e torna a campanha ainda mais urgente.' },
-  { src: '/assets/9.png', title: 'A cadeira atual já não atende bem', text: 'Uma estrutura adequada ajuda a oferecer mais segurança, conforto e dignidade durante os cuidados.' },
-  { src: '/assets/10.png', title: 'Até o banho exige estrutura e apoio', text: 'Atividades básicas da rotina se tornam difíceis sem equipamentos e um ambiente adaptado às necessidades de Ana Júlia.' }
+  { record: '01', src: '/assets/1.png', title: 'O suplemento faz parte da rotina', text: 'A alimentação clínica é importante para Ana Júlia manter as forças e receber o suporte nutricional necessário no dia a dia.' },
+  { record: '02', src: '/assets/2.png', title: 'Mãe e filha enfrentam essa luta juntas', text: 'Maria Sônia dedica sua rotina aos cuidados da filha, acompanhando cada necessidade com atenção e carinho.' },
+  { record: '03', src: '/assets/3.png', title: 'Cada contribuição ajuda de verdade', text: 'Mesmo uma doação de menor valor pode colaborar com fraldas, higiene, alimentação e outras despesas contínuas.' },
+  { record: '04', src: '/assets/4.png', title: 'A preocupação com a moradia', text: 'A família precisa preservar um lugar seguro para viver e continuar os cuidados de Ana Júlia com mais estabilidade.' },
+  { record: '06', src: '/assets/6.png', title: 'Uma rotina marcada pela urgência', text: 'Os gastos são contínuos e a família precisa de apoio para não interromper itens indispensáveis.' },
+  { record: '07', src: '/assets/7.png', title: 'Ana Júlia precisa de cuidados constantes', text: 'A condição dela exige atenção integral, alimentação adequada, higiene e acompanhamento diário.' },
+  { record: '08', src: '/assets/8.png', title: 'O risco de perder o lar', text: 'A insegurança da moradia aumenta o peso vivido pela família e torna a campanha ainda mais urgente.' },
+  { record: '09', src: '/assets/9.png', title: 'A cadeira atual já não atende bem', text: 'Uma estrutura adequada ajuda a oferecer mais segurança, conforto e dignidade durante os cuidados.' },
+  { record: '10', src: '/assets/10.png', title: 'Até o banho exige estrutura e apoio', text: 'Atividades básicas da rotina se tornam difíceis sem equipamentos e um ambiente adaptado às necessidades de Ana Júlia.' }
 ];
 const supporters = [
   ['AN', 'Ana M.', 'Há 2 min', 50],
@@ -29,9 +28,7 @@ app.innerHTML = `
       <a class="brand" href="#inicio" aria-label="Amor Salva">
         <img src="/assets/logo-amor-salva.png" alt="Amor Salva">
       </a>
-      <button class="icon-button" id="shareBtn" aria-label="Compartilhar campanha">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.7 10.7l6.6-3.8M8.7 13.3l6.6 3.8"></path></svg>
-      </button>
+
     </div>
   </header>
 
@@ -141,7 +138,7 @@ app.innerHTML = `
           <article class="gallery-card">
             <img src="${slide.src}" alt="${slide.title}" loading="lazy">
             <div class="gallery-caption">
-              <span>REGISTRO ${String(i + 1).padStart(2, '0')}</span>
+              <span>REGISTRO ${slide.record}</span>
               <h3>${slide.title}</h3>
               <p>${slide.text}</p>
             </div>
@@ -271,10 +268,6 @@ document.querySelectorAll('[data-value]').forEach(b => b.addEventListener('click
   showStep('donorForm');
 }));
 document.querySelector('#backValues').addEventListener('click', () => showStep('valueStep'));
-document.querySelector('#shareBtn').addEventListener('click', async () => {
-  const data = { title: document.title, text: 'Conheça esta campanha do Amor Salva', url: location.href };
-  try { navigator.share ? await navigator.share(data) : await navigator.clipboard.writeText(location.href); } catch {}
-});
 
 document.querySelector('#donorForm').addEventListener('submit', async e => {
   e.preventDefault();
@@ -356,14 +349,21 @@ function updateVisualVideoProgress() {
 
   const realRatio = Math.max(0, Math.min(0.999, current / duration));
   let visualRatio;
-  if (realRatio <= 0.72) {
-    // Chega rapidamente a 93% durante os primeiros 72% do vídeo.
-    visualRatio = (realRatio / 0.72) * 0.93;
+
+  if (realRatio <= 0.22) {
+    // Sensação de vídeo curto: a barra alcança cerca de 88% ainda no começo.
+    const phase = realRatio / 0.22;
+    visualRatio = 0.88 * (1 - Math.pow(1 - phase, 2.8));
+  } else if (realRatio <= 0.62) {
+    // Continua avançando, mas já reduz bastante a velocidade.
+    const phase = (realRatio - 0.22) / 0.40;
+    visualRatio = 0.88 + (0.97 - 0.88) * (1 - Math.pow(1 - phase, 1.8));
   } else {
-    // Nos minutos finais, avança lentamente e fica abaixo de 100% até o término real.
-    const finalPhase = (realRatio - 0.72) / 0.28;
-    visualRatio = 0.93 + 0.069 * (1 - Math.pow(1 - finalPhase, 2.6));
+    // Trecho final: percorre os últimos pixels devagar e só completa no fim real.
+    const phase = (realRatio - 0.62) / 0.38;
+    visualRatio = 0.97 + 0.029 * (1 - Math.pow(1 - phase, 2.2));
   }
+
   fakeVideoProgress.style.width = `${Math.min(99.9, visualRatio * 100).toFixed(2)}%`;
 }
 
