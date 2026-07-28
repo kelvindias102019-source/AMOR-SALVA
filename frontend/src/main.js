@@ -8,11 +8,11 @@ const slides = [
   { record: '02', src: '/assets/2.png', title: 'Mãe e filha enfrentam essa luta juntas', text: 'Maria Sônia dedica sua rotina aos cuidados da filha, acompanhando cada necessidade com atenção e carinho.' },
   { record: '03', src: '/assets/3.png', title: 'Cada contribuição ajuda de verdade', text: 'Mesmo uma doação de menor valor pode colaborar com fraldas, higiene, alimentação e outras despesas contínuas.' },
   { record: '04', src: '/assets/4.png', title: 'A preocupação com a moradia', text: 'A família precisa preservar um lugar seguro para viver e continuar os cuidados de Ana Júlia com mais estabilidade.' },
-  { record: '06', src: '/assets/6.png', title: 'Uma rotina marcada pela urgência', text: 'Os gastos são contínuos e a família precisa de apoio para não interromper itens indispensáveis.' },
-  { record: '07', src: '/assets/7.png', title: 'Ana Júlia precisa de cuidados constantes', text: 'A condição dela exige atenção integral, alimentação adequada, higiene e acompanhamento diário.' },
-  { record: '08', src: '/assets/8.png', title: 'O risco de perder o lar', text: 'A insegurança da moradia aumenta o peso vivido pela família e torna a campanha ainda mais urgente.' },
-  { record: '09', src: '/assets/9.png', title: 'A cadeira atual já não atende bem', text: 'Uma estrutura adequada ajuda a oferecer mais segurança, conforto e dignidade durante os cuidados.' },
-  { record: '10', src: '/assets/10.png', title: 'Até o banho exige estrutura e apoio', text: 'Atividades básicas da rotina se tornam difíceis sem equipamentos e um ambiente adaptado às necessidades de Ana Júlia.' }
+  { record: '05', src: '/assets/6.png', title: 'Uma rotina marcada pela urgência', text: 'Os gastos são contínuos e a família precisa de apoio para não interromper itens indispensáveis.' },
+  { record: '06', src: '/assets/7.png', title: 'Ana Júlia precisa de cuidados constantes', text: 'A condição dela exige atenção integral, alimentação adequada, higiene e acompanhamento diário.' },
+  { record: '07', src: '/assets/8.png', title: 'O risco de perder o lar', text: 'A insegurança da moradia aumenta o peso vivido pela família e torna a campanha ainda mais urgente.' },
+  { record: '08', src: '/assets/9.png', title: 'A cadeira atual já não atende bem', text: 'Uma estrutura adequada ajuda a oferecer mais segurança, conforto e dignidade durante os cuidados.' },
+  { record: '09', src: '/assets/10.png', title: 'Até o banho exige estrutura e apoio', text: 'Atividades básicas da rotina se tornam difíceis sem equipamentos e um ambiente adaptado às necessidades de Ana Júlia.' }
 ];
 const supporters = [
   ['AN', 'Ana M.', 'Há 2 min', 50],
@@ -214,12 +214,12 @@ app.innerHTML = `
         </div>
         <div class="updates-list">
           <article class="update-item">
-            <span class="update-date">14 de Maio</span>
+            <span class="update-date">14 de Julho</span>
             <h3>Benefício cortado</h3>
             <p>O auxílio governamental essencial foi suspenso temporariamente, gerando pânico imediato na família.</p>
           </article>
           <article class="update-item">
-            <span class="update-date">01 de Maio</span>
+            <span class="update-date">01 de Julho</span>
             <h3>Risco de despejo</h3>
             <p>Sem recursos para o aluguel adaptado para acessibilidade, a família recebeu uma notificação de desocupação.</p>
           </article>
@@ -230,21 +230,27 @@ app.innerHTML = `
     <section class="trust-faq-section page-shell">
       <div class="info-card">
         <div class="info-heading">
-          <span class="info-icon" aria-hidden="true">🛡️</span>
+          <span class="info-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
           <h2>Transparência e Respostas</h2>
         </div>
         <div class="trust-badges">
           <article class="trust-badge">
-            <span class="trust-badge-icon" aria-hidden="true">🛡️</span>
-            <strong>Campanha 100% real</strong>
+            <span class="trust-badge-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
+            </span>
+            <div><strong>Campanha 100% real</strong><small>História e necessidades apresentadas com clareza</small></div>
           </article>
           <article class="trust-badge">
-            <span class="trust-badge-icon" aria-hidden="true">🔒</span>
-            <strong>Doação protegida</strong>
+            <span class="trust-badge-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            </span>
+            <div><strong>Doação protegida</strong><small>Pagamento gerado em ambiente seguro</small></div>
           </article>
           <article class="trust-badge">
-            <span class="trust-badge-icon" aria-hidden="true">📄</span>
-            <strong>Contas auditadas</strong>
+            <span class="trust-badge-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg>
+            </span>
+            <div><strong>Contas auditadas</strong><small>Uso dos recursos acompanhado e organizado</small></div>
           </article>
         </div>
         <div class="faq-list">
