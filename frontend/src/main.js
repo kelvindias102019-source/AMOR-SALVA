@@ -113,11 +113,6 @@ app.innerHTML = `
           <span class="donation-heart">♥</span> Doar agora
         </button>
       </div>
-      <div class="trust-row">
-        <span>✓ Pagamento via PIX</span>
-        <span>✓ Nome opcional</span>
-        <span>✓ Confirmação automática</span>
-      </div>
     </section>
 
     <section class="institute-profile page-shell" aria-labelledby="instituteProfileTitle">
@@ -129,9 +124,9 @@ app.innerHTML = `
           <span class="eyebrow">RESPONSÁVEL PELA CAMPANHA</span>
           <h2 id="instituteProfileTitle">Instituto Amor Salva</h2>
           <ul class="institute-data">
-            <li><span aria-hidden="true">@</span><strong>@instituto_amor_salva</strong></li>
-            <li><span aria-hidden="true">⌖</span><strong>Belo Horizonte, Minas Gerais</strong></li>
-            <li><span aria-hidden="true">▣</span><strong>CNPJ: 77.260.528/0001-24</strong></li>
+            <li><span class="institute-data-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span><strong>@instituto_amor_salva</strong></li>
+            <li><span class="institute-data-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.6"/></svg></span><strong>Belo Horizonte, Minas Gerais</strong></li>
+            <li><span class="institute-data-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span><strong>CNPJ: 77.260.528/0001-24</strong></li>
           </ul>
         </div>
       </div>
@@ -339,7 +334,7 @@ app.innerHTML = `
         <a href="#campanha">Campanha</a>
         <a href="#transparencia">Transparência</a>
       </nav>
-      <p>© ${new Date().getFullYear()} Instituto Amor Salva. Todos os direitos reservados.</p>
+      <p>© 2024 Instituto Amor Salva. Todos os direitos reservados.</p>
     </div>
   </footer>
 
