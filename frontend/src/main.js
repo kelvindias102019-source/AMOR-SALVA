@@ -36,7 +36,6 @@ app.innerHTML = `
     <section class="vsl-first page-shell" aria-labelledby="vslTitle">
       <section class="vsl-card">
         <div class="vsl-heading">
-          <span class="vsl-kicker">ASSISTA À HISTÓRIA</span>
           <h1 id="vslTitle">Conheça a realidade de Maria Sônia e Ana Júlia</h1>
           <p>Veja por que esta família precisa de apoio para manter a moradia e os cuidados essenciais.</p>
         </div>
@@ -96,7 +95,7 @@ app.innerHTML = `
           <p>Ao tocar no botão, você escolhe o valor dentro de uma janela segura. O nome é opcional e a contribuição pode ser anônima.</p>
         </div>
         <button class="button button-primary donation-main-button" data-donate>
-          <span class="donation-heart">♥</span> Fazer minha parte
+          <span class="donation-heart">♥</span> Doar agora
         </button>
       </div>
       <div class="trust-row">
@@ -116,14 +115,38 @@ app.innerHTML = `
           <blockquote>“Choro escondida para não desanimar meus filhos. Se eu fraquejar, quem cuidará da Júlia? Ela é toda a minha vida.”</blockquote>
         </div>
         <div class="story-highlight">
-          <strong>Elas precisam de apoio para:</strong>
-          <ul>
-            <li>Manter uma moradia segura e adaptada</li>
-            <li>Comprar fraldas e itens de higiene</li>
-            <li>Garantir medicamentos de uso contínuo</li>
-            <li>Custear alimentação clínica e cuidados diários</li>
-          </ul>
-          <button class="button button-primary" data-donate>Fazer minha parte</button>
+          <div class="support-needs-heading">
+            <span>ONDE SUA AJUDA CHEGA</span>
+            <h3>Elas precisam de apoio todos os dias</h3>
+            <p>Cada contribuição ajuda a sustentar uma parte essencial da rotina da família.</p>
+          </div>
+          <div class="support-needs-grid">
+            <article class="support-need-item">
+              <span class="support-need-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5z"/><path d="M9 21v-6h6v6"/></svg>
+              </span>
+              <div><h4>Moradia segura</h4><p>Um lar estável e adaptado para os cuidados de Ana Júlia.</p></div>
+            </article>
+            <article class="support-need-item">
+              <span class="support-need-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M8 3h8v4H8z"/><path d="M7 7h10l1 3v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9z"/><path d="M9 13h6M12 10v6"/></svg>
+              </span>
+              <div><h4>Fraldas e higiene</h4><p>Itens usados diariamente para garantir conforto e dignidade.</p></div>
+            </article>
+            <article class="support-need-item">
+              <span class="support-need-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M9 3h6v4H9z"/><path d="M8 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/><path d="M9 14h6M12 11v6"/></svg>
+              </span>
+              <div><h4>Medicamentos contínuos</h4><p>Tratamentos que não podem ser interrompidos.</p></div>
+            </article>
+            <article class="support-need-item">
+              <span class="support-need-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M5 4v7a3 3 0 0 0 6 0V4M8 4v17M16 4v17M16 4c3 2 3 7 0 9"/></svg>
+              </span>
+              <div><h4>Alimentação e cuidados</h4><p>Suplementos, alimentação clínica e despesas da rotina.</p></div>
+            </article>
+          </div>
+          <button class="button button-primary support-needs-button" data-donate>Fazer minha parte</button>
         </div>
       </div>
     </section>
@@ -197,7 +220,7 @@ app.innerHTML = `
       <div class="page-shell final-card">
         <img src="/assets/logo-amor-salva.png" alt="Amor Salva">
         <div><span class="eyebrow">AMOR SALVA</span><h2>Juntos podemos aliviar esse peso</h2><p>Escolha um valor e ajude Maria Sônia e Ana Júlia a seguirem com mais segurança e dignidade.</p></div>
-        <button class="button button-primary" data-donate>Fazer minha parte</button>
+        <button class="button button-primary" data-donate>Doar agora</button>
       </div>
     </section>
   </main>

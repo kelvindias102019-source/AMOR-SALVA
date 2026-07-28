@@ -223,3 +223,19 @@ input{margin-top:7px;border:1px solid #c8d5e4;border-radius:12px;padding:14px}
   .hero-actions-single .button{width:auto;min-width:220px}
   .gallery-card{width:43%}
 }
+
+/* Bloco ilustrativo de necessidades — mobile first */
+.story-highlight{padding:20px;background:linear-gradient(160deg,#0b438e,#06265f)}
+.support-needs-heading>span{display:block;color:#9fd0ff;font-size:.66rem;font-weight:950;letter-spacing:.14em;margin-bottom:6px}
+.support-needs-heading h3{margin:0;color:#fff;font-size:1.45rem;line-height:1.12;letter-spacing:-.025em}
+.support-needs-heading p{margin:8px 0 0;color:#dcecff;font-size:.88rem;line-height:1.5}
+.support-needs-grid{display:grid;gap:10px;margin:17px 0}
+.support-need-item{display:grid;grid-template-columns:48px 1fr;gap:11px;align-items:center;padding:12px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);border-radius:16px}
+.support-need-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:#fff;color:var(--navy-2);box-shadow:0 8px 20px rgba(0,0,0,.12)}
+.support-need-icon svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.support-need-item h4{margin:0 0 3px;color:#fff;font-size:.98rem;line-height:1.2}
+.support-need-item p{margin:0;color:#dcecff;font-size:.78rem;line-height:1.4}
+.support-needs-button{width:100%;background:#fff!important;color:var(--navy)!important;box-shadow:none!important}
+@media(min-width:720px){
+  .support-needs-grid{grid-template-columns:1fr 1fr}
+}
