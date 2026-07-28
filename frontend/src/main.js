@@ -3,7 +3,18 @@ import './styles.css';
 const API = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
 const VALUES = [10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000];
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const slides = [1,2,3,4,5,6,7,8,9,10].map(n => `/assets/${n}.png`);
+const slides = [
+  { src: '/assets/1.png', title: 'O suplemento faz parte da rotina', text: 'A alimentação clínica é importante para Ana Júlia manter as forças e receber o suporte nutricional necessário no dia a dia.' },
+  { src: '/assets/2.png', title: 'Mãe e filha enfrentam essa luta juntas', text: 'Maria Sônia dedica sua rotina aos cuidados da filha, acompanhando cada necessidade com atenção e carinho.' },
+  { src: '/assets/3.png', title: 'Cada contribuição ajuda de verdade', text: 'Mesmo uma doação de menor valor pode colaborar com fraldas, higiene, alimentação e outras despesas contínuas.' },
+  { src: '/assets/4.png', title: 'A preocupação com a moradia', text: 'A família precisa preservar um lugar seguro para viver e continuar os cuidados de Ana Júlia com mais estabilidade.' },
+  { src: '/assets/5.png', title: 'Moradia e tratamento não podem esperar', text: 'Sem apoio, as despesas da casa e dos cuidados essenciais ficam cada vez mais difíceis de manter.' },
+  { src: '/assets/6.png', title: 'Uma rotina marcada pela urgência', text: 'Os gastos são contínuos e a família precisa de apoio para não interromper itens indispensáveis.' },
+  { src: '/assets/7.png', title: 'Ana Júlia precisa de cuidados constantes', text: 'A condição dela exige atenção integral, alimentação adequada, higiene e acompanhamento diário.' },
+  { src: '/assets/8.png', title: 'O risco de perder o lar', text: 'A insegurança da moradia aumenta o peso vivido pela família e torna a campanha ainda mais urgente.' },
+  { src: '/assets/9.png', title: 'A cadeira atual já não atende bem', text: 'Uma estrutura adequada ajuda a oferecer mais segurança, conforto e dignidade durante os cuidados.' },
+  { src: '/assets/10.png', title: 'Até o banho exige estrutura e apoio', text: 'Atividades básicas da rotina se tornam difíceis sem equipamentos e um ambiente adaptado às necessidades de Ana Júlia.' }
+];
 const supporters = [
   ['AN', 'Ana M.', 'Há 2 min', 50],
   ['CR', 'Carlos R.', 'Há 12 min', 100],
@@ -25,23 +36,12 @@ app.innerHTML = `
   </header>
 
   <main id="inicio">
-    <section class="hero page-shell">
-      <div class="hero-copy">
-        <span class="eyebrow">CAMPANHA SOLIDÁRIA • AMOR SALVA</span>
-        <h1>Ajude Maria Sônia e Ana Júlia a manterem um lar seguro</h1>
-        <img class="hero-banner" src="/assets/banner-principal.jpg" alt="Precisamos da sua ajuda para ter onde morar">
-        <p>Maria Sônia dedica todos os dias aos cuidados da filha Ana Júlia, que vive com paralisia cerebral severa e precisa de atenção integral. Hoje, elas enfrentam despesas essenciais e o risco de perder a moradia.</p>
-        <div class="hero-actions">
-          <button class="button button-primary" data-donate>Fazer minha parte</button>
-          <a class="button button-ghost" href="#historia">Conhecer a história</a>
-        </div>
-      </div>
-
-      <section class="vsl-card" aria-labelledby="vslTitle">
+    <section class="vsl-first page-shell" aria-labelledby="vslTitle">
+      <section class="vsl-card">
         <div class="vsl-heading">
           <span class="vsl-kicker">ASSISTA À HISTÓRIA</span>
-          <h2 id="vslTitle">Entenda por que essa ajuda é tão urgente</h2>
-          <p>Em poucos minutos, conheça a realidade de Maria Sônia e Ana Júlia.</p>
+          <h1 id="vslTitle">Conheça a realidade de Maria Sônia e Ana Júlia</h1>
+          <p>Veja por que esta família precisa de apoio para manter a moradia e os cuidados essenciais.</p>
         </div>
         <div class="video-stage" id="videoStage">
           <video id="campaignVideo" playsinline preload="metadata" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. Toque para reproduzir ou pausar.">
@@ -53,9 +53,7 @@ app.innerHTML = `
             <strong>Toque para assistir</strong>
           </button>
         </div>
-        <div class="video-progress" aria-label="Progresso visual do vídeo">
-          <span id="fakeVideoProgress"></span>
-        </div>
+        <div class="video-progress" aria-label="Progresso visual do vídeo"><span id="fakeVideoProgress"></span></div>
         <div class="video-control-row">
           <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="false">
             <span id="soundIcon" aria-hidden="true">🔊</span>
@@ -65,6 +63,18 @@ app.innerHTML = `
         </div>
         <p class="video-note"><span></span> Assista até o fim para conhecer toda a história.</p>
       </section>
+    </section>
+
+    <section class="hero page-shell">
+      <div class="hero-copy">
+        <span class="eyebrow">CAMPANHA SOLIDÁRIA • AMOR SALVA</span>
+        <h2>Ajude Maria Sônia e Ana Júlia a manterem um lar seguro</h2>
+        <img class="hero-banner" src="/assets/banner-principal.jpg" alt="Precisamos da sua ajuda para ter onde morar">
+        <p>Maria Sônia dedica todos os dias aos cuidados da filha Ana Júlia, que vive com paralisia cerebral severa e precisa de atenção integral. Hoje, elas enfrentam despesas essenciais e o risco de perder a moradia.</p>
+        <div class="hero-actions hero-actions-single">
+          <a class="button button-ghost" href="#historia">Conhecer a história</a>
+        </div>
+      </div>
     </section>
 
     <section class="progress-wrap page-shell" aria-label="Progresso da campanha">
@@ -127,7 +137,15 @@ app.innerHTML = `
         <h2>Conheça um pouco da rotina da família</h2>
       </div>
       <div class="gallery-track">
-        ${slides.map((src, i) => `<img src="${src}" alt="Registro da campanha ${i+1}" loading="lazy">`).join('')}
+        ${slides.map((slide, i) => `
+          <article class="gallery-card">
+            <img src="${slide.src}" alt="${slide.title}" loading="lazy">
+            <div class="gallery-caption">
+              <span>REGISTRO ${String(i + 1).padStart(2, '0')}</span>
+              <h3>${slide.title}</h3>
+              <p>${slide.text}</p>
+            </div>
+          </article>`).join('')}
       </div>
     </section>
 
