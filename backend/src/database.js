@@ -8,8 +8,14 @@ export const db=url&&key
   :null;
 
 export async function insertDonation(row){
-  if(!db)return row;
-  const{data,error}=await db.from('donations').insert(row).select().single();
+  const normalized={...row};
+  if(normalized.amount_cents==null && normalized.amount!=null){
+    normalized.amount_cents=Math.round(Number(normalized.amount)*100);
+  }
+  delete normalized.amount;
+  delete normalized.provider_id;
+  if(!db)return normalized;
+  const{data,error}=await db.from('donations').insert(normalized).select().single();
   if(error)throw error;
   return data;
 }
