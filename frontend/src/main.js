@@ -1,6 +1,8 @@
 import './styles.css';
 
 const API = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
+const TURNSTILE_SITE_KEY = String(import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
+let turnstileWidgetId = null;
 const VALUES = [10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000];
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const slides = [
@@ -355,6 +357,8 @@ app.innerHTML = `
         <p class="selected">Doação de <b id="selectedValue"></b></p>
         <label>Seu nome <span>(opcional)</span><input name="name" maxlength="100" placeholder="Deixe vazio para doar anonimamente"></label>
         <label class="check"><input type="checkbox" name="showPublic"> Mostrar meu nome entre os apoiadores</label>
+        <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div id="turnstileContainer" class="turnstile-container" aria-label="Verificação de segurança"></div>
         <button class="button button-primary full" id="generate" type="submit">Gerar QR Code PIX</button>
         <p class="error" id="error"></p>
       </form>
@@ -372,6 +376,19 @@ app.innerHTML = `
     </section>
   </div>`;
 
+
+
+function renderTurnstile() {
+  if (!TURNSTILE_SITE_KEY || !window.turnstile || turnstileWidgetId !== null) return;
+  const container = document.querySelector('#turnstileContainer');
+  if (!container) return;
+  turnstileWidgetId = window.turnstile.render(container, {
+    sitekey: TURNSTILE_SITE_KEY,
+    theme: 'light',
+    size: 'flexible'
+  });
+}
+window.onTurnstileLoad = renderTurnstile;
 
 const copyPixButton = document.querySelector('#copyPixButton');
 copyPixButton?.addEventListener('click', async () => {
@@ -413,6 +430,7 @@ const showStep = id => steps.forEach(s => s.classList.toggle('active', s.id === 
 
 function openDonation(amount) {
   modal.classList.add('open');
+  window.setTimeout(renderTurnstile, 80);
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('lock');
   if (amount) {
@@ -450,9 +468,11 @@ document.querySelector('#donorForm').addEventListener('submit', async e => {
   btn.textContent = 'Gerando…';
   const fd = new FormData(e.currentTarget);
   const name = String(fd.get('name') || '').trim();
-  const payload = { amount: selectedAmount, name, showPublic: Boolean(name) && fd.get('showPublic') === 'on', ...tracking() };
+  const turnstileToken = TURNSTILE_SITE_KEY && window.turnstile && turnstileWidgetId !== null ? window.turnstile.getResponse(turnstileWidgetId) : '';
+  const payload = { amount: selectedAmount, name, website: String(fd.get('website') || ''), turnstileToken, showPublic: Boolean(name) && fd.get('showPublic') === 'on', ...tracking() };
   try {
     if (!API) throw new Error('O pagamento ainda não foi configurado.');
+    if (TURNSTILE_SITE_KEY && !turnstileToken) throw new Error('Confirme a verificação de segurança.');
     const response = await fetch(`${API}/api/donations/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Não foi possível gerar o PIX.');
@@ -463,6 +483,7 @@ document.querySelector('#donorForm').addEventListener('submit', async e => {
     startPolling(data.externalId);
   } catch (err) {
     error.textContent = err.message;
+    if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Gerar QR Code PIX';

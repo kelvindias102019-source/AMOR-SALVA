@@ -289,3 +289,8 @@ input{margin-top:7px;border:1px solid #c8d5e4;border-radius:12px;padding:14px}
 
 /* PIX copia e cola */
 .pix-copy-label{display:block;margin:14px 0 7px;text-align:left;color:var(--navy);font-size:.83rem;font-weight:900}.pix-copy-code{display:block;width:100%;min-height:92px;resize:none;border:1px solid #c8d5e4;border-radius:13px;padding:12px;background:#f8fbff;color:#33445d;font-size:.76rem;line-height:1.4;word-break:break-all}.pix-copy-code:focus{outline:2px solid rgba(20,91,173,.2);border-color:var(--navy-2)}
+
+/* Segurança do formulário */
+.hp-field{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.turnstile-container{min-height:0;margin:10px 0;display:flex;justify-content:center;overflow:hidden}
+.turnstile-container:empty{display:none}
