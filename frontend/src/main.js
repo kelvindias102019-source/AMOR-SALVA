@@ -51,13 +51,17 @@ app.innerHTML = `
           <p>Veja por que esta família precisa de apoio para manter a moradia e os cuidados essenciais.</p>
         </div>
         <div class="video-stage" id="videoStage">
-          <video id="campaignVideo" playsinline preload="auto" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. O site tentará iniciar automaticamente com áudio; toque para pausar ou continuar.">
+          <video id="campaignVideo" playsinline preload="auto" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. O vídeo inicia automaticamente sem som; toque para pausar ou continuar.">
             <source src="/assets/historia-amor-salva.mp4" type="video/mp4">
             Seu navegador não suporta vídeo HTML5.
           </video>
           <button class="video-play-overlay" id="videoPlayOverlay" type="button" aria-label="Reproduzir vídeo">
             <span class="video-play-icon" aria-hidden="true"></span>
             <strong id="videoCountdown">Começando em 2...</strong>
+          </button>
+          <button class="video-audio-prompt" id="videoAudioPrompt" type="button" aria-label="Ativar áudio do vídeo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="m17 9 4 4m0-4-4 4"></path></svg>
+            <strong>Clique para ativar o áudio</strong>
           </button>
         </div>
         <div class="video-progress" aria-label="Progresso visual do vídeo"><span id="fakeVideoProgress"></span></div>
@@ -481,6 +485,7 @@ const fakeVideoProgress = document.querySelector('#fakeVideoProgress');
 const videoStage = document.querySelector('#videoStage');
 const videoPlayOverlay = document.querySelector('#videoPlayOverlay');
 const soundToggle = document.querySelector('#soundToggle');
+const videoAudioPrompt = document.querySelector('#videoAudioPrompt');
 const soundIcon = document.querySelector('#soundIcon');
 const soundLabel = document.querySelector('#soundLabel');
 const videoStatus = document.querySelector('#videoStatus');
@@ -570,14 +575,15 @@ function updateSoundInterface() {
   soundToggle?.setAttribute('aria-pressed', String(muted));
   if (soundIcon) soundIcon.textContent = muted ? '🔇' : '🔊';
   if (soundLabel) soundLabel.textContent = muted ? 'Ativar áudio' : 'Áudio ligado';
+  videoAudioPrompt?.classList.toggle('is-hidden', !muted || campaignVideo.paused || campaignVideo.ended);
 }
 
 if (campaignVideo) {
   campaignVideo.controls = false;
   campaignVideo.removeAttribute('controls');
   campaignVideo.autoplay = false;
-  campaignVideo.muted = false;
-  campaignVideo.defaultMuted = false;
+  campaignVideo.muted = true;
+  campaignVideo.defaultMuted = true;
   campaignVideo.volume = 1;
   campaignVideo.playsInline = true;
 
@@ -596,31 +602,30 @@ if (campaignVideo) {
     window.setTimeout(async () => {
       autoplayCountdownActive = false;
       try {
-        // Primeira tentativa: iniciar automaticamente já com o áudio ligado.
-        campaignVideo.muted = false;
+        // Autoplay confiável: começa sem som e pede uma interação para ativar o áudio.
+        campaignVideo.muted = true;
         campaignVideo.volume = 1;
         await campaignVideo.play();
         updateSoundInterface();
       } catch {
-        // Navegadores móveis costumam bloquear autoplay com som.
-        // Nesse caso, inicia sem áudio para não deixar a VSL parada.
-        try {
-          campaignVideo.muted = true;
-          await campaignVideo.play();
-          if (label) label.textContent = 'Toque em “Ativar áudio” para ouvir';
-          updateSoundInterface();
-        } catch {
-          if (label) label.textContent = 'Toque para assistir';
-          updateVideoInterface();
-        }
+        if (label) label.textContent = 'Toque para assistir';
+        updateVideoInterface();
       }
     }, 2000);
   };
 
   campaignVideo.addEventListener('click', toggleVideoPlayback);
   videoPlayOverlay?.addEventListener('click', toggleVideoPlayback);
-  soundToggle?.addEventListener('click', () => {
+  const toggleVideoSound = () => {
     campaignVideo.muted = !campaignVideo.muted;
+    if (!campaignVideo.muted) campaignVideo.volume = 1;
+    updateSoundInterface();
+  };
+  soundToggle?.addEventListener('click', toggleVideoSound);
+  videoAudioPrompt?.addEventListener('click', event => {
+    event.stopPropagation();
+    campaignVideo.muted = false;
+    campaignVideo.volume = 1;
     updateSoundInterface();
   });
   ['loadedmetadata', 'timeupdate', 'seeking', 'seeked'].forEach(eventName => {
