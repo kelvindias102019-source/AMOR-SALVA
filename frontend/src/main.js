@@ -362,12 +362,33 @@ app.innerHTML = `
         <h2>Escaneie para doar</h2>
         <p>Valor: <b id="pixAmount"></b></p>
         <div class="qr"><img id="qrImage" alt="QR Code PIX"></div>
+        <label class="pix-copy-label" for="pixCopyCode">PIX copia e cola</label>
+        <textarea id="pixCopyCode" class="pix-copy-code" readonly aria-label="Código PIX copia e cola"></textarea>
+        <button class="button button-ghost full" id="copyPixButton" type="button">Copiar código PIX</button>
         <p class="waiting"><span></span>Aguardando confirmação do pagamento…</p>
         <button class="button button-ghost full" data-close>Fechar</button>
       </div>
       <div id="successStep" class="step success"><div>✓</div><h2>Doação confirmada</h2><p>Obrigado por fazer parte desta corrente de amor.</p><button class="button button-primary full" data-close>Concluir</button></div>
     </section>
   </div>`;
+
+
+const copyPixButton = document.querySelector('#copyPixButton');
+copyPixButton?.addEventListener('click', async () => {
+  const pixCopyCode = document.querySelector('#pixCopyCode');
+  const code = pixCopyCode?.value || '';
+  if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code);
+    copyPixButton.textContent = 'Código copiado';
+  } catch {
+    pixCopyCode.focus();
+    pixCopyCode.select();
+    document.execCommand('copy');
+    copyPixButton.textContent = 'Código copiado';
+  }
+  window.setTimeout(() => { copyPixButton.textContent = 'Copiar código PIX'; }, 1800);
+});
 
 let selectedAmount = null;
 let poll = null;
@@ -437,6 +458,7 @@ document.querySelector('#donorForm').addEventListener('submit', async e => {
     if (!response.ok) throw new Error(data.error || 'Não foi possível gerar o PIX.');
     document.querySelector('#qrImage').src = data.qrImage;
     document.querySelector('#pixAmount').textContent = money.format(data.amount);
+    document.querySelector('#pixCopyCode').value = data.pixCode || '';
     showStep('pixStep');
     startPolling(data.externalId);
   } catch (err) {
