@@ -355,6 +355,27 @@ const soundToggle = document.querySelector('#soundToggle');
 const soundIcon = document.querySelector('#soundIcon');
 const soundLabel = document.querySelector('#soundLabel');
 const videoStatus = document.querySelector('#videoStatus');
+let visualProgressFrame = null;
+
+function stopVisualProgressLoop() {
+  if (visualProgressFrame !== null) {
+    cancelAnimationFrame(visualProgressFrame);
+    visualProgressFrame = null;
+  }
+}
+
+function startVisualProgressLoop() {
+  stopVisualProgressLoop();
+  const tick = () => {
+    updateVisualVideoProgress();
+    if (campaignVideo && !campaignVideo.paused && !campaignVideo.ended) {
+      visualProgressFrame = requestAnimationFrame(tick);
+    } else {
+      visualProgressFrame = null;
+    }
+  };
+  visualProgressFrame = requestAnimationFrame(tick);
+}
 
 function updateVisualVideoProgress() {
   if (!campaignVideo || !fakeVideoProgress) return;
@@ -432,8 +453,18 @@ if (campaignVideo) {
   ['loadedmetadata', 'timeupdate', 'seeking', 'seeked'].forEach(eventName => {
     campaignVideo.addEventListener(eventName, updateVisualVideoProgress);
   });
-  ['play', 'pause', 'ended'].forEach(eventName => {
-    campaignVideo.addEventListener(eventName, updateVideoInterface);
+  campaignVideo.addEventListener('play', () => {
+    updateVideoInterface();
+    startVisualProgressLoop();
+  });
+  campaignVideo.addEventListener('pause', () => {
+    updateVideoInterface();
+    stopVisualProgressLoop();
+    updateVisualVideoProgress();
+  });
+  campaignVideo.addEventListener('ended', () => {
+    updateVideoInterface();
+    stopVisualProgressLoop();
   });
   campaignVideo.addEventListener('volumechange', updateSoundInterface);
   campaignVideo.addEventListener('ended', () => {
