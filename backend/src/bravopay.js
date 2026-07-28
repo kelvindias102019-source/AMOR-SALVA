@@ -1,10 +1,15 @@
 const base=String(process.env.BRAVOPAY_API_URL||'https://bravopay.club/api/v1').replace(/\/$/,'');
 
-export async function createPix({amount,name,externalReference,tracking={}}){
+export async function createPix({amount,customer,externalReference,tracking={}}){
   const body={
     amount_cents:Math.round(Number(amount)*100),
     method:'pix',
-    customer:{name:name||'Doador anônimo'},
+    customer:{
+      name:customer?.name||'Doador anônimo',
+      email:customer?.email||undefined,
+      cpf:customer?.cpf||undefined,
+      phone:customer?.phone||undefined
+    },
     description:'Doação Instituto Amor Salva',
     external_reference:externalReference,
     expires_in:Number(process.env.BRAVOPAY_PIX_EXPIRES_IN||3600),
@@ -20,6 +25,9 @@ export async function createPix({amount,name,externalReference,tracking={}}){
       ttclid:tracking.ttclid||''
     }
   };
+
+  // Remove campos opcionais vazios antes de enviar.
+  Object.keys(body.customer).forEach(key=>body.customer[key]===undefined&&delete body.customer[key]);
 
   const response=await fetch(`${base}/transactions`,{
     method:'POST',
@@ -37,7 +45,7 @@ export async function createPix({amount,name,externalReference,tracking={}}){
 
   if(!response.ok){
     console.error('BravoPay error',{status:response.status,body:data});
-    throw new Error(data?.error?.message||'Falha ao gerar cobrança PIX');
+    throw new Error(data?.error?.message||data?.message||'Falha ao gerar cobrança PIX');
   }
 
   return data;

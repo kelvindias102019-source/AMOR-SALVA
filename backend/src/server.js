@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import QRCode from 'qrcode';
 import crypto from 'node:crypto';
 import {createPix} from './bravopay.js';
-import {insertDonation,updateDonation,getDonation,paidTotal} from './database.js';
+import {insertDonation,updateDonation,getDonation,paidTotal,getRandomTestPayer} from './database.js';
 
 const app=express();
 const origins=String(process.env.FRONTEND_ORIGINS||'')
@@ -32,7 +32,7 @@ async function bravoWebhookHandler(req,res){
     if(externalReference){
       await updateDonation(externalReference,{
         status:mapStatus(transaction?.status||event?.type),
-        provider_id:transaction?.id||transaction?.transaction_id||null,
+        provider_transaction_id:transaction?.id||transaction?.transaction_id||null,
         paid_at:transaction?.paid_at||transaction?.paidAt||null,
         updated_at:new Date().toISOString()
       });
@@ -62,11 +62,20 @@ app.post('/api/donations/create',async(req,res)=>{
       return res.status(503).json({error:'Pagamento ainda não configurado.'});
     }
 
-    const name=String(req.body.name||'').trim().slice(0,100);
+    const useTestPayers=String(process.env.USE_TEST_PAYERS||'false').toLowerCase()==='true';
+    const submittedName=String(req.body.name||'').trim().slice(0,100);
+    const testPayer=useTestPayers?await getRandomTestPayer():null;
+    const customer=testPayer?{
+      name:testPayer.full_name,
+      email:testPayer.email,
+      phone:testPayer.phone,
+      cpf:testPayer.cpf
+    }:{name:submittedName||'Doador anônimo'};
+
     const externalId=`amor_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
     const transaction=await createPix({
       amount,
-      name,
+      customer,
       externalReference:externalId,
       tracking:req.body
     });
@@ -78,11 +87,26 @@ app.post('/api/donations/create',async(req,res)=>{
 
     await insertDonation({
       external_reference:externalId,
-      provider_id:transaction?.id||null,
-      amount,
+      provider:'bravopay',
+      provider_transaction_id:transaction?.id||null,
+      amount_cents:Math.round(amount*100),
       status:mapStatus(transaction?.status),
-      donor_name:name||null,
-      show_public:Boolean(name)&&req.body.showPublic===true,
+      donor_name:customer.name||null,
+      donor_email:customer.email||null,
+      donor_phone:customer.phone||null,
+      donor_document:customer.cpf||null,
+      show_public:!useTestPayers&&Boolean(submittedName)&&req.body.showPublic===true,
+      pix_copy_paste:pixCode,
+      pix_expires_at:transaction?.pix?.expires_at||transaction?.pix?.expiresAt||null,
+      metadata:{test_payer:useTestPayers},
+      utm_source:req.body.utm_source||null,
+      utm_medium:req.body.utm_medium||null,
+      utm_campaign:req.body.utm_campaign||null,
+      utm_content:req.body.utm_content||null,
+      utm_term:req.body.utm_term||null,
+      fbclid:req.body.fbclid||null,
+      gclid:req.body.gclid||null,
+      ttclid:req.body.ttclid||null,
       created_at:new Date().toISOString(),
       updated_at:new Date().toISOString()
     });
@@ -104,7 +128,7 @@ app.get('/api/donations/:id/status',async(req,res)=>{
   try{
     const donation=await getDonation(req.params.id);
     if(!donation) return res.status(404).json({error:'Doação não encontrada.'});
-    return res.json({status:donation.status,amount:donation.amount});
+    return res.json({status:donation.status,amount:Number(donation.amount_cents||0)/100});
   }catch(error){
     console.error('Donation status',error);
     return res.status(500).json({error:'Falha ao consultar pagamento.'});
