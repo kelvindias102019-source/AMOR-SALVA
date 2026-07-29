@@ -1,34 +1,17 @@
-# Amor Salva — Campanha Solidária
+# Vaquinha da Sônia — BravoPay
 
-Projeto mobile-first remodelado a partir do HTML e das imagens enviados.
+Estrutura:
 
-## Estrutura
 - `frontend/`: Vite para Vercel.
 - `backend/`: Node/Express para Render.
-- `supabase/`: banco de dados.
+- `supabase/`: banco, RPCs e migração.
 
-## Pagamento
-A página não exibe PIX copia e cola. O doador escolhe um valor e recebe apenas o QR Code PIX.
+Integração de pagamento:
 
-Valores disponíveis: R$ 10, R$ 30, R$ 50, R$ 100, R$ 200, R$ 300, R$ 500, R$ 700 e R$ 1.000.
+- criação: `POST https://bravopay.club/api/v1/transactions`;
+- autenticação: `Authorization: Bearer BRAVOPAY_API_KEY`;
+- webhook: `/api/webhooks/bravopay`;
+- assinatura: HMAC-SHA256 com o segredo `whsec_...`;
+- confirmação adicional: consulta da transação pela API.
 
-## Supabase
-Execute `supabase/setup.sql` no SQL Editor.
-
-## Render
-Root Directory: `backend`
-
-Configure as variáveis presentes em `backend/.env.example`.
-
-Webhook BravoPay:
-`https://SEU-BACKEND.onrender.com/api/webhooks/bravopay`
-
-## Vercel
-Root Directory: `frontend`
-
-Configure:
-`VITE_API_BASE_URL=https://SEU-BACKEND.onrender.com`
-
-
-## VSL
-O vídeo da campanha está em `frontend/public/assets/historia-amor-salva.mp4`. A barra abaixo do vídeo usa progresso visual não linear e só chega a 100% quando o vídeo termina.
+Leia `DEPLOY.md` antes de publicar. Chaves da BravoPay e a SERVICE_ROLE do Supabase ficam somente no Render.

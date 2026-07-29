@@ -1,15 +1,11 @@
 services:
   - type: web
-    name: amor-salva-backend
+    name: vaquinha-sonia-api
     runtime: node
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm ci --omit=dev
     startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
-        value: 22
-      - key: CAMPAIGN_GOAL
-        value: 130000
-      - key: CAMPAIGN_INITIAL_AMOUNT
-        value: 27847
+        value: 22.17.0

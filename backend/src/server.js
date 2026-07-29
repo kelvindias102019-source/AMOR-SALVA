@@ -1,146 +1,548 @@
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import QRCode from 'qrcode';
 import crypto from 'node:crypto';
-import {createPix} from './bravopay.js';
-import {insertDonation,updateDonation,getDonation,paidTotal,getRandomTestPayer,registerWebhookEvent} from './database.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import express from 'express';
+import helmet from 'helmet';
+import compression from 'compression';
+import QRCode from 'qrcode';
+import { z } from 'zod';
+import {
+  createDonation,
+  findDonation,
+  claimPaymentProfile,
+  countRecentGenerations,
+  findDonationByGenerationKey,
+  getCampaignSummary,
+  getPendingForReconciliation,
+  getPublicSupporters,
+  getRecentConfirmedActivity,
+  getSupporterLikeStatuses,
+  saveGenerationAudit,
+  saveWebhookEvent,
+  setSupporterLike,
+  updateDonationByExternalId,
+} from './database.js';
+import { createPixTransaction, queryPixTransaction, readableBravoPayError, normalizeBravoPayStatus } from './bravopay.js';
 
-const app=express();
-app.set('trust proxy',1);
-app.disable('x-powered-by');
-const origins=String(process.env.FRONTEND_ORIGINS||'').split(',').map(x=>x.trim().replace(/\/$/,'')).filter(Boolean);
-const allowedAmounts=[10,20,30,50,70,100,150,200,300,500,700,1000,1500,2000];
-const production=process.env.NODE_ENV==='production';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
+const appVersion = 'sonia-bravopay-2026-07-27-v2';
+const port = Number(process.env.PORT || 10000);
+const publicBaseUrl = String(process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
+const allowedFrontendOrigins = String(process.env.FRONTEND_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+const campaignGoal = Number(process.env.CAMPAIGN_GOAL || 35000);
+const campaignDisplayPercentage = 20;
+const campaignInitialAmount = Number(process.env.CAMPAIGN_INITIAL_AMOUNT || 3500);
+const allowedAmounts = Object.freeze([5, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000]);
+const allowedStatuses = new Set(['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED', 'CHARGEBACK']);
+const statusCheckCache = new Map();
+const generationWindowMs = 10 * 60 * 1000;
+const generationLimitPerWindow = 5;
+const auditHashSecret = process.env.AUDIT_HASH_SECRET || process.env.BRAVOPAY_WEBHOOK_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-app.use(helmet({crossOriginResourcePolicy:false,contentSecurityPolicy:false}));
-app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');res.setHeader('X-Robots-Tag','noindex, nofollow');next();});
-app.use(cors({
-  origin(origin,cb){
-    if(!origin)return cb(null,true);
-    return origins.includes(origin.replace(/\/$/,''))?cb(null,true):cb(new Error('CORS_BLOCKED'));
-  },methods:['GET','POST','OPTIONS'],allowedHeaders:['Content-Type'],maxAge:600,credentials:false
-}));
-
-const globalLimiter=memoryRateLimit({windowMs:60_000,limit:120,message:'Muitas solicitações. Aguarde um momento.'});
-const createLimiter=memoryRateLimit({windowMs:15*60_000,limit:Number(process.env.PIX_RATE_LIMIT||5),message:'Muitas tentativas de gerar PIX. Aguarde alguns minutos.'});
-const statusLimiter=memoryRateLimit({windowMs:60_000,limit:30,message:'Muitas consultas. Aguarde um momento.'});
-app.use('/api',globalLimiter);
-
-app.get('/health',(_,res)=>res.json({ok:true,service:'amor-salva'}));
-
-async function bravoWebhookHandler(req,res){
-  try{
-    const raw=Buffer.isBuffer(req.body)?req.body.toString('utf8'):String(req.body||'');
-    const signature=req.get('BravoPay-Signature')||req.get('X-Bravopay-Signature')||'';
-    if(!verifyBravoSignature(raw,signature,process.env.BRAVOPAY_WEBHOOK_SECRET))return res.status(401).json({error:'Não autorizado.'});
-    const event=JSON.parse(raw);
-    const transaction=event?.data?.transaction||event?.data||event?.transaction||event;
-    const externalReference=transaction?.external_reference||transaction?.externalReference||null;
-    const timestamp=extractSignatureTimestamp(signature);
-    const eventId=String(event?.id||event?.event_id||`${transaction?.id||externalReference||'unknown'}:${event?.type||transaction?.status||'event'}:${timestamp}`);
-    const registration=await registerWebhookEvent({eventId,eventType:String(event?.type||transaction?.status||'unknown'),payload:event});
-    if(registration.duplicate)return res.json({received:true,duplicate:true});
-    if(externalReference){
-      const patch={status:mapStatus(transaction?.status||event?.type),provider_transaction_id:transaction?.id||transaction?.transaction_id||null,updated_at:new Date().toISOString()};
-      if(patch.status==='COMPLETED')patch.paid_at=transaction?.paid_at||transaction?.paidAt||new Date().toISOString();
-      await updateDonation(externalReference,patch);
-    }
-    return res.json({received:true});
-  }catch(error){
-    logError('webhook',error);
-    return res.status(400).json({error:'Webhook inválido.'});
-  }
+function hashAuditValue(value) {
+  return crypto.createHmac('sha256', auditHashSecret).update(String(value || '')).digest('hex');
 }
-app.post('/webhooks/bravopay',express.raw({type:'application/json',limit:'256kb'}),bravoWebhookHandler);
-app.post('/api/webhooks/bravopay',express.raw({type:'application/json',limit:'256kb'}),bravoWebhookHandler);
 
-app.use(express.json({limit:'32kb',strict:true}));
+function getRequesterHash(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const ip = forwarded || req.ip || req.socket?.remoteAddress || 'unknown';
+  return hashAuditValue(`ip:${ip}`);
+}
 
-app.post('/api/donations/create',createLimiter,requireJson,requireAllowedOrigin,async(req,res)=>{
-  const requestId=crypto.randomUUID();
-  try{
-    if(req.body?.website)return res.status(400).json({error:'Solicitação inválida.'});
-    const amount=Number(req.body?.amount);
-    if(!allowedAmounts.includes(amount))return res.status(422).json({error:'Valor de doação inválido.'});
-    if(!process.env.BRAVOPAY_API_KEY)return res.status(503).json({error:'Pagamento temporariamente indisponível.'});
-    const turnstileOk=await verifyTurnstile(req.body?.turnstileToken,req.ip);
-    if(!turnstileOk)return res.status(403).json({error:'Não foi possível validar a solicitação. Atualize a página e tente novamente.'});
+function getLikeVoterHash(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const ip = forwarded || req.ip || req.socket?.remoteAddress || 'unknown';
+  const userAgent = req.get('user-agent') || 'unknown';
+  return hashAuditValue(`supporter-like:${ip}:${userAgent}`);
+}
 
-    const useTestPayers=!production&&String(process.env.USE_TEST_PAYERS||'false').toLowerCase()==='true';
-    const submittedName=cleanText(req.body?.name,100);
-    const testPayer=useTestPayers?await getRandomTestPayer():null;
-    const customer=testPayer?{name:testPayer.full_name,email:testPayer.email,phone:testPayer.phone,cpf:testPayer.cpf}:{name:submittedName||'Doador anônimo'};
-    const externalId=`amor_${Date.now()}_${crypto.randomBytes(12).toString('hex')}`;
-    const transaction=await createPix({amount,customer,externalReference:externalId,tracking:safeTracking(req.body)});
-    const pixCode=transaction?.pix?.copy_paste||transaction?.pix?.copyPaste||transaction?.pix_code||null;
-    if(!pixCode)throw new Error('PIX_CODE_MISSING');
-    const qrImage=await QRCode.toDataURL(pixCode,{margin:1,width:640,errorCorrectionLevel:'M'});
-    await insertDonation({
-      external_reference:externalId,provider:'bravopay',provider_transaction_id:transaction?.id||null,
-      amount_cents:Math.round(amount*100),status:mapStatus(transaction?.status),donor_name:customer.name||null,
-      donor_email:customer.email||null,donor_phone:customer.phone||null,donor_document:customer.cpf||null,
-      show_public:!useTestPayers&&Boolean(submittedName)&&req.body?.showPublic===true,pix_copy_paste:pixCode,
-      pix_expires_at:transaction?.pix?.expires_at||transaction?.pix?.expiresAt||null,
-      metadata:{test_payer:useTestPayers,request_id:requestId},...safeTracking(req.body),
-      created_at:new Date().toISOString(),updated_at:new Date().toISOString()
-    });
-    return res.json({externalId,amount,qrImage,pixCode,expiresAt:transaction?.pix?.expires_at||transaction?.pix?.expiresAt||null});
-  }catch(error){
-    logError('create_donation',error,{requestId});
-    return res.status(502).json({error:'Não foi possível gerar o PIX agora. Tente novamente em alguns instantes.',requestId});
-  }
-});
+function getGenerationKey(requesterHash, amount) {
+  const bucket = Math.floor(Date.now() / generationWindowMs);
+  return hashAuditValue(`pix:${requesterHash}:${amount}:${bucket}`);
+}
 
-app.get('/api/donations/:id/status',statusLimiter,requireAllowedOrigin,async(req,res)=>{
-  try{
-    const id=String(req.params.id||'');
-    if(!/^amor_\d+_[a-f0-9]{24}$/.test(id))return res.status(400).json({error:'Identificador inválido.'});
-    const donation=await getDonation(id);
-    if(!donation)return res.status(404).json({error:'Doação não encontrada.'});
-    return res.json({status:donation.status,amount:Number(donation.amount_cents||0)/100});
-  }catch(error){logError('donation_status',error);return res.status(500).json({error:'Falha ao consultar pagamento.'});}
-});
-
-app.get('/api/campaign',async(_,res)=>{
-  try{const goal=Number(process.env.CAMPAIGN_GOAL||130000);const initial=Number(process.env.CAMPAIGN_INITIAL_AMOUNT||27847);const raised=initial+await paidTotal();return res.json({goal,raised,percentage:Number(((raised/goal)*100).toFixed(1))});}
-  catch(error){logError('campaign_total',error);return res.json({goal:130000,raised:27847,percentage:21.4});}
-});
-app.use((err,req,res,next)=>{if(err?.message==='CORS_BLOCKED')return res.status(403).json({error:'Origem não autorizada.'});if(err instanceof SyntaxError)return res.status(400).json({error:'JSON inválido.'});next(err);});
-app.use((_,res)=>res.status(404).json({error:'Rota não encontrada.'}));
-
-
-function memoryRateLimit({windowMs,limit,message}){
-  const hits=new Map();
-  const timer=setInterval(()=>{const now=Date.now();for(const[k,v]of hits)if(v.reset<=now)hits.delete(k);},Math.min(windowMs,60_000));
-  timer.unref?.();
-  return(req,res,next)=>{
-    const key=String(req.ip||req.socket?.remoteAddress||'unknown');
-    const now=Date.now();
-    let entry=hits.get(key);
-    if(!entry||entry.reset<=now)entry={count:0,reset:now+windowMs};
-    entry.count+=1;hits.set(key,entry);
-    res.setHeader('RateLimit-Limit',String(limit));
-    res.setHeader('RateLimit-Remaining',String(Math.max(0,limit-entry.count)));
-    res.setHeader('RateLimit-Reset',String(Math.ceil(entry.reset/1000)));
-    if(entry.count>limit){res.setHeader('Retry-After',String(Math.ceil((entry.reset-now)/1000)));return res.status(429).json({error:message});}
-    next();
+async function buildPixResponse(donation, reused = false) {
+  if (!donation?.qrcode_emv) return null;
+  const qrImage = await QRCode.toDataURL(donation.qrcode_emv, {
+    width: 340,
+    margin: 1,
+    errorCorrectionLevel: 'M',
+  });
+  return {
+    externalId: donation.external_id,
+    transactionId: donation.transaction_id,
+    status: donation.status,
+    amount: Number(donation.amount),
+    pixCode: donation.qrcode_emv,
+    qrImage,
+    reused,
   };
 }
 
-function requireJson(req,res,next){if(!req.is('application/json'))return res.status(415).json({error:'Formato não suportado.'});next();}
-function requireAllowedOrigin(req,res,next){const origin=String(req.get('origin')||'').replace(/\/$/,'');if(!origin||!origins.includes(origin))return res.status(403).json({error:'Origem não autorizada.'});next();}
-function cleanText(value,max){return String(value||'').replace(/[<>\u0000-\u001F]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);}
-function safeTracking(body={}){const out={};for(const k of ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid','ttclid'])out[k]=cleanText(body[k],200)||null;return out;}
-async function verifyTurnstile(token,ip){
-  const enabled=String(process.env.TURNSTILE_ENABLED||'false').toLowerCase()==='true';
-  if(!enabled)return true;
-  if(!process.env.TURNSTILE_SECRET_KEY||!token)return false;
-  try{const form=new URLSearchParams({secret:process.env.TURNSTILE_SECRET_KEY,response:String(token),remoteip:String(ip||'')});const response=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',body:form,signal:AbortSignal.timeout(8000)});const data=await response.json();return data?.success===true;}catch{return false;}
+async function writeAuditSafe(row) {
+  try {
+    await saveGenerationAudit(row);
+  } catch (error) {
+    console.error('Falha ao registrar auditoria:', error.message);
+  }
 }
-function mapStatus(value){const status=String(value||'').toUpperCase();if(['PAID','APPROVED','COMPLETED','TRANSACTION.PAID','PAYMENT.PAID'].some(x=>status.includes(x)))return'COMPLETED';if(['FAILED','EXPIRED','CANCELED','CANCELLED','REFUNDED','CHARGEBACK'].some(x=>status.includes(x)))return'FAILED';return'PENDING';}
-function extractSignatureTimestamp(header){const match=String(header||'').match(/(?:^|,)\s*t=(\d+)/);return match?Number(match[1]):0;}
-function verifyBravoSignature(raw,header,secret){try{if(!secret||!header)return false;const parts=Object.fromEntries(header.split(',').map(part=>{const i=part.indexOf('=');return i===-1?[part.trim(),'']:[part.slice(0,i).trim(),part.slice(i+1).trim()]}));const timestamp=Number(parts.t);const received=parts.v1||'';if(!timestamp||!received||Math.abs(Date.now()/1000-timestamp)>300)return false;const expected=crypto.createHmac('sha256',secret).update(`${timestamp}.${raw}`).digest('hex');const a=Buffer.from(expected,'utf8');const b=Buffer.from(received,'utf8');return a.length===b.length&&crypto.timingSafeEqual(a,b);}catch{return false;}}
-function logError(scope,error,extra={}){console.error(scope,{...extra,name:error?.name||'Error',code:error?.code||error?.message||'unknown',status:error?.status||undefined});}
-app.listen(process.env.PORT||10000,()=>console.log(`Amor Salva backend ativo na porta ${process.env.PORT||10000}`));
+
+if (!publicBaseUrl.startsWith('https://')) {
+  console.warn('PUBLIC_BASE_URL deve ser uma URL HTTPS pública para o webhook funcionar.');
+}
+
+app.set('trust proxy', 1);
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'https://www.facebook.com'],
+      styleSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://connect.facebook.net'],
+      connectSrc: ["'self'", 'https://www.facebook.com', 'https://connect.facebook.net'],
+      fontSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+}));
+app.use(compression());
+
+// Permite que somente o frontend publicado na Vercel consuma a API.
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+
+  if (origin && allowedFrontendOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Accept');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+
+  if (req.method === 'OPTIONS') {
+    if (!origin || !allowedFrontendOrigins.includes(origin)) {
+      return res.status(403).end();
+    }
+    return res.status(204).end();
+  }
+
+  return next();
+});
+
+function safeEqualHex(a, b) {
+  try {
+    const first = Buffer.from(String(a || ''), 'hex');
+    const second = Buffer.from(String(b || ''), 'hex');
+    return first.length > 0 && first.length === second.length && crypto.timingSafeEqual(first, second);
+  } catch {
+    return false;
+  }
+}
+
+function validateBravoPayWebhook(rawBody, headerValue) {
+  const secret = String(process.env.BRAVOPAY_WEBHOOK_SECRET || '').trim();
+  if (!secret || !headerValue) return false;
+
+  const parts = Object.fromEntries(
+    String(headerValue)
+      .split(',')
+      .map((part) => part.trim().split('='))
+      .filter(([key, value]) => key && value)
+  );
+
+  const timestamp = Number(parts.t);
+  if (!timestamp || Math.abs(Date.now() / 1000 - timestamp) > 300) return false;
+
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest('hex');
+
+  return safeEqualHex(parts.v1, expected);
+}
+
+app.post('/api/webhooks/bravopay', express.raw({ type: 'application/json', limit: '256kb' }), async (req, res) => {
+  const rawBody = req.body.toString('utf8');
+  const signature = req.header('BravoPay-Signature') || req.header('X-Bravopay-Signature') || '';
+
+  if (!validateBravoPayWebhook(rawBody, signature)) {
+    return res.status(401).json({ error: 'Assinatura do webhook inválida.' });
+  }
+
+  let event;
+  try {
+    event = JSON.parse(rawBody);
+  } catch {
+    return res.status(400).json({ error: 'JSON inválido.' });
+  }
+
+  const transactionEvents = new Set([
+    'transaction.created',
+    'transaction.paid',
+    'transaction.refunded',
+    'transaction.chargeback',
+    'transaction.expired',
+    'transaction.failed',
+  ]);
+
+  if (!event?.id || !transactionEvents.has(event.type) || !event?.data?.id) {
+    return res.status(200).json({ ignored: true });
+  }
+
+  try {
+    const isNew = await saveWebhookEvent(event);
+    if (!isNew) return res.status(200).json({ duplicate: true });
+
+    const transaction = event.data;
+    const externalId = transaction.external_reference;
+    if (!externalId) return res.status(200).json({ ignored: true, reason: 'missing_external_reference' });
+
+    const status = normalizeBravoPayStatus(transaction.status);
+    const patch = {
+      transaction_id: transaction.id,
+      status,
+      fee: transaction.fee_cents == null ? null : Number(transaction.fee_cents) / 100,
+      gateway_payload: event,
+    };
+
+    if (status === 'COMPLETED') patch.paid_at = transaction.paid_at || new Date().toISOString();
+    if (['COMPLETED', 'FAILED', 'REFUNDED', 'CHARGEBACK'].includes(status)) patch.generation_key = null;
+
+    await updateDonationByExternalId(externalId, patch);
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error('Falha no webhook BravoPay:', error);
+    return res.status(500).json({ error: 'Falha interna.' });
+  }
+});
+
+app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: false }));
+
+const donationSchema = z.object({
+  amount: z.coerce.number().refine((value) => allowedAmounts.includes(value), 'Valor não permitido.'),
+  name: z.string().trim().max(100).optional().default(''),
+  showPublic: z.boolean().optional().default(false),
+  utm_source: z.string().max(255).optional(),
+  utm_medium: z.string().max(64).optional(),
+  utm_campaign: z.string().max(255).optional(),
+  utm_content: z.string().max(255).optional(),
+  utm_term: z.string().max(255).optional(),
+  fbclid: z.string().max(500).optional(),
+  gclid: z.string().max(500).optional(),
+  ttclid: z.string().max(500).optional(),
+}).superRefine((value, ctx) => {
+  if (value.showPublic && value.name.length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['name'], message: 'Informe seu nome para aparecer nos apoiadores.' });
+  }
+});
+
+function publicFirstName(name) {
+  return name.trim().split(/\s+/)[0].slice(0, 40);
+}
+
+app.post('/api/donations/create', async (req, res) => {
+  const parsed = donationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Dados inválidos.' });
+  }
+
+  const input = parsed.data;
+  const requesterHash = getRequesterHash(req);
+  const userAgentHash = hashAuditValue(`ua:${req.get('user-agent') || ''}`);
+  const generationKey = getGenerationKey(requesterHash, input.amount);
+
+  try {
+    const reusable = await findDonationByGenerationKey(generationKey);
+    if (reusable) {
+      const response = await buildPixResponse(reusable, true);
+      if (response) {
+        await writeAuditSafe({
+          event_type: 'REUSED',
+          external_id: reusable.external_id,
+          amount: input.amount,
+          payment_profile_id: reusable.payment_profile_id,
+          requester_hash: requesterHash,
+          user_agent_hash: userAgentHash,
+          details: { reason: 'same_ip_amount_window' },
+        });
+        return res.status(200).json(response);
+      }
+      return res.status(409).json({ error: 'Este PIX já está sendo gerado. Aguarde alguns segundos e tente novamente.' });
+    }
+
+    const sinceIso = new Date(Date.now() - generationWindowMs).toISOString();
+    const recentCount = await countRecentGenerations(requesterHash, sinceIso);
+    if (recentCount >= generationLimitPerWindow) {
+      await writeAuditSafe({
+        event_type: 'BLOCKED',
+        external_id: null,
+        amount: input.amount,
+        payment_profile_id: null,
+        requester_hash: requesterHash,
+        user_agent_hash: userAgentHash,
+        details: { reason: 'rate_limit', recentCount },
+      });
+      return res.status(429).json({ error: 'Muitas tentativas em pouco tempo. Aguarde alguns minutos antes de gerar outro PIX.' });
+    }
+
+    const paymentProfile = await claimPaymentProfile();
+    if (!paymentProfile) {
+      return res.status(503).json({ error: 'Nenhum perfil de pagamento está ativo no Supabase.' });
+    }
+
+    const externalId = `sonia-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+
+    try {
+      await createDonation({
+        external_id: externalId,
+        amount: input.amount,
+        status: 'CREATING',
+        donor_name: input.name || null,
+        donor_email: null,
+        donor_document_last4: null,
+        public_name: input.showPublic && input.name ? publicFirstName(input.name) : null,
+        show_public: input.showPublic,
+        payment_profile_id: paymentProfile.id,
+        requester_hash: requesterHash,
+        generation_key: generationKey,
+        utm_source: input.utm_source || null,
+        utm_medium: input.utm_medium || null,
+        utm_campaign: input.utm_campaign || null,
+        utm_content: input.utm_content || null,
+        utm_term: input.utm_term || null,
+      });
+    } catch (error) {
+      if (error.code === '23505') {
+        const concurrent = await findDonationByGenerationKey(generationKey);
+        const response = await buildPixResponse(concurrent, true);
+        if (response) return res.status(200).json(response);
+        return res.status(409).json({ error: 'Este PIX já está sendo gerado. Aguarde alguns segundos e tente novamente.' });
+      }
+      throw error;
+    }
+
+    try {
+      const deposit = await createPixTransaction({
+        amount: input.amount,
+        externalReference: externalId,
+        customer: {
+          name: paymentProfile.payer_name,
+          email: paymentProfile.payer_email,
+          document: paymentProfile.payer_document,
+          phone: paymentProfile.payer_phone,
+        },
+        description: `Doação de R$ ${Number(input.amount).toFixed(2)} para a campanha da Sônia`,
+        metadata: { campaign: 'sonia', source: 'landing_page' },
+        utm: {
+          source: input.utm_source,
+          medium: input.utm_medium,
+          campaign: input.utm_campaign,
+          content: input.utm_content,
+          term: input.utm_term,
+          fbclid: input.fbclid,
+          gclid: input.gclid,
+          ttclid: input.ttclid,
+        },
+      });
+
+      const updated = await updateDonationByExternalId(externalId, {
+        transaction_id: deposit.transactionId,
+        status: allowedStatuses.has(deposit.status) ? deposit.status : 'PENDING',
+        fee: deposit.fee,
+        qrcode_emv: deposit.qrcode,
+        gateway_payload: deposit.raw,
+      });
+
+      await writeAuditSafe({
+        event_type: 'CREATED',
+        external_id: externalId,
+        amount: input.amount,
+        payment_profile_id: paymentProfile.id,
+        requester_hash: requesterHash,
+        user_agent_hash: userAgentHash,
+        details: { profile_rotated: true },
+      });
+
+      const response = await buildPixResponse(updated, false);
+      return res.status(201).json(response);
+    } catch (error) {
+      console.error('Erro ao criar doação:', error.response?.data || error);
+      try {
+        await updateDonationByExternalId(externalId, {
+          status: 'FAILED',
+          generation_key: null,
+          gateway_payload: error.response?.data || { message: error.message },
+        });
+      } catch {}
+      await writeAuditSafe({
+        event_type: 'FAILED',
+        external_id: externalId,
+        amount: input.amount,
+        payment_profile_id: paymentProfile.id,
+        requester_hash: requesterHash,
+        user_agent_hash: userAgentHash,
+        details: { message: error.message },
+      });
+      const readable = readableBravoPayError(error);
+      return res.status(readable.status).json({ error: readable.message });
+    }
+  } catch (error) {
+    console.error('Erro na proteção de geração PIX:', error);
+    return res.status(500).json({ error: 'Não foi possível iniciar o pagamento.' });
+  }
+});
+
+async function refreshPendingStatus(donation) {
+  if (!donation || donation.status !== 'PENDING') return donation;
+  const lastCheck = statusCheckCache.get(donation.external_id) || 0;
+  if (Date.now() - lastCheck < 10000) return donation;
+  statusCheckCache.set(donation.external_id, Date.now());
+
+  const gateway = await queryPixTransaction(donation.transaction_id);
+  if (!gateway?.status || !allowedStatuses.has(gateway.status)) return donation;
+  if (gateway.status === donation.status) return donation;
+
+  return updateDonationByExternalId(donation.external_id, {
+    status: gateway.status,
+    ...((gateway.status === 'COMPLETED' || gateway.status === 'FAILED') ? { generation_key: null } : {}),
+    fee: gateway.fee == null ? donation.fee : Number(gateway.fee),
+    transaction_id: gateway.transactionId || donation.transaction_id,
+    paid_at: gateway.status === 'COMPLETED' ? (gateway.paidAt || new Date().toISOString()) : donation.paid_at,
+    gateway_payload: gateway,
+  });
+}
+
+app.get('/api/donations/:externalId/status', async (req, res) => {
+  try {
+    let donation = await findDonation(req.params.externalId);
+    if (!donation) return res.status(404).json({ error: 'Doação não encontrada.' });
+    donation = await refreshPendingStatus(donation);
+    return res.json({ status: donation.status, amount: Number(donation.amount), paidAt: donation.paid_at });
+  } catch (error) {
+    console.error('Erro ao consultar status:', error);
+    return res.status(500).json({ error: 'Não foi possível consultar o pagamento.' });
+  }
+});
+
+const supporterLikeStatusSchema = z.object({
+  supporterKeys: z
+    .array(z.string().trim().min(1).max(160))
+    .max(30),
+});
+
+const supporterLikeActionSchema = z.object({
+  supporterKey: z.string().trim().min(1).max(160),
+  liked: z.boolean(),
+});
+
+app.post('/api/supporters/likes/status', async (req, res) => {
+  const parsed = supporterLikeStatusSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Lista de apoiadores inválida.' });
+  }
+
+  try {
+    const voterHash = getLikeVoterHash(req);
+    const supporters = await getSupporterLikeStatuses(
+      parsed.data.supporterKeys,
+      voterHash
+    );
+
+    return res.json({
+      maxLikes: 50,
+      supporters,
+    });
+  } catch (error) {
+    console.error('Erro ao consultar curtidas dos apoiadores:', error);
+    return res.status(500).json({ error: 'Não foi possível carregar as curtidas.' });
+  }
+});
+
+app.post('/api/supporters/like', async (req, res) => {
+  const parsed = supporterLikeActionSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Curtida inválida.' });
+  }
+
+  try {
+    const voterHash = getLikeVoterHash(req);
+    const result = await setSupporterLike(
+      parsed.data.supporterKey,
+      voterHash,
+      parsed.data.liked
+    );
+
+    return res.json({
+      supporterKey: parsed.data.supporterKey,
+      liked: result.liked,
+      count: result.count,
+      maxLikes: 50,
+      maxReached: result.maxReached,
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar curtida do apoiador:', error);
+    return res.status(500).json({ error: 'Não foi possível atualizar a curtida.' });
+  }
+});
+
+app.get('/api/campaign', async (_req, res) => {
+  try {
+    const [summary, supporters, recentActivity] = await Promise.all([
+      getCampaignSummary(campaignInitialAmount, campaignGoal, campaignDisplayPercentage),
+      getPublicSupporters(),
+      getRecentConfirmedActivity(20),
+    ]);
+    return res.json({ ...summary, percentage: summary.calculatedPercentage, supporters, recentActivity });
+  } catch (error) {
+    console.error('Erro no resumo da campanha:', error);
+    return res.status(500).json({ error: 'Não foi possível carregar a campanha.' });
+  }
+});
+
+app.get('/health', (_req, res) => res.json({ ok: true, version: appVersion, gateway: 'bravopay' }));
+app.get('/api/version', (_req, res) => res.json({
+  ok: true,
+  version: appVersion,
+  gateway: 'bravopay',
+  routes: [
+    'POST /api/donations/create',
+    'GET /api/donations/:externalId/status',
+    'POST /api/webhooks/bravopay',
+    'GET /api/campaign',
+  ],
+}));
+app.use((_req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
+
+async function reconcilePending() {
+  try {
+    const pending = await getPendingForReconciliation();
+    for (const row of pending) {
+      try {
+        const current = await findDonation(row.external_id);
+        await refreshPendingStatus(current);
+      } catch (error) {
+        console.error(`Reconciliação falhou para ${row.external_id}:`, error.message);
+      }
+    }
+  } catch (error) {
+    console.error('Falha na reconciliação:', error);
+  }
+}
+
+setInterval(reconcilePending, 5 * 60 * 1000).unref();
+app.listen(port, () => {
+  console.log(`Servidor BravoPay ${appVersion} rodando na porta ${port}`);
+  console.log('Rota PIX ativa: POST /api/donations/create');
+  console.log('Webhook ativo: POST /api/webhooks/bravopay');
+});

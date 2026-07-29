@@ -1,0 +1,62 @@
+PACOTE FINAL — CAMPANHA DA SÔNIA / BRAVOPAY
+
+ESTRUTURA QUE DEVE FICAR NA RAIZ DO GITHUB:
+
+backend/
+frontend/
+supabase/
+render.yaml
+README.md
+DEPLOY.md
+BRAVOPAY.md
+
+1) SUBSTITUA TODO O CONTEÚDO DO REPOSITÓRIO PELO CONTEÚDO DESTE PACOTE.
+2) NÃO ENVIE A PASTA EXTERNA "sonia-substituicao-final" PARA DENTRO DO REPOSITÓRIO.
+3) NA RAIZ DO GITHUB, AS PASTAS backend, frontend e supabase PRECISAM APARECER DIRETAMENTE.
+
+COMANDOS:
+
+git add .
+git commit -m "Corrige backend BravoPay e rota PIX"
+git push origin main
+
+RENDER:
+Root Directory: backend
+Build Command: npm ci --omit=dev
+Start Command: npm start
+
+Depois use: Manual Deploy > Clear build cache & deploy.
+
+TESTES APÓS O DEPLOY:
+https://SEU-BACKEND.onrender.com/health
+https://SEU-BACKEND.onrender.com/api/version
+
+/api/version precisa mostrar:
+- gateway: bravopay
+- POST /api/donations/create
+- POST /api/webhooks/bravopay
+
+VERCEL:
+Root Directory: frontend
+Framework Preset: Vite
+Build Command: npm run build
+Output Directory: dist
+
+Variável:
+VITE_API_BASE_URL=https://SEU-BACKEND.onrender.com
+
+RENDER — VARIÁVEIS MÍNIMAS:
+BRAVOPAY_API_URL
+BRAVOPAY_API_KEY
+BRAVOPAY_WEBHOOK_SECRET
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+AUDIT_HASH_SECRET
+FRONTEND_ORIGIN
+PUBLIC_BASE_URL
+CAMPAIGN_GOAL=35000
+CAMPAIGN_INITIAL_AMOUNT=0
+CAMPAIGN_NAME=Vaquinha da Sônia
+
+WEBHOOK:
+https://SEU-BACKEND.onrender.com/api/webhooks/bravopay
