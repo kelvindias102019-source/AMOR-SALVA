@@ -1,0 +1,10 @@
+Integração do Meta Pixel 2279794442426700 para o projeto Maria Sônia e Ana Júlia.
+
+Substitua:
+- frontend/index.html
+- frontend/vercel.json
+
+Adicione:
+- frontend/public/meta-pixel.js
+
+Depois publique novamente o frontend na Vercel.
