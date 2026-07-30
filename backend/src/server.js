@@ -4,8 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import QRCode from 'qrcode';
 import crypto from 'node:crypto';
-import {createPix} from './bravopay.js';
-import {insertDonation,updateDonation,getDonation,paidTotal,getRandomTestPayer,registerWebhookEvent} from './database.js';
+import {createPix,getDeposit} from './veopag.js';
+import {insertDonation,updateDonation,getDonation,getPendingDonations,paidTotal,getRandomTestPayer,registerWebhookEvent} from './database.js';
 
 const app=express();
 app.set('trust proxy',1);
@@ -28,33 +28,41 @@ const createLimiter=memoryRateLimit({windowMs:15*60_000,limit:Number(process.env
 const statusLimiter=memoryRateLimit({windowMs:60_000,limit:30,message:'Muitas consultas. Aguarde um momento.'});
 app.use('/api',globalLimiter);
 
-app.get('/health',(_,res)=>res.json({ok:true,service:'amor-salva'}));
+app.get('/health',(_,res)=>res.json({ok:true,service:'maria-sonia-ana-julia',provider:'veopag',webhook:'/webhooks/veopag'}));
 
-async function bravoWebhookHandler(req,res){
+async function veopagWebhookHandler(req,res){
   try{
     const raw=Buffer.isBuffer(req.body)?req.body.toString('utf8'):String(req.body||'');
-    const signature=req.get('BravoPay-Signature')||req.get('X-Bravopay-Signature')||'';
-    if(!verifyBravoSignature(raw,signature,process.env.BRAVOPAY_WEBHOOK_SECRET))return res.status(401).json({error:'Não autorizado.'});
+    if(!verifyVeoPagWebhook(req,raw))return res.status(401).json({error:'Não autorizado.'});
     const event=JSON.parse(raw);
-    const transaction=event?.data?.transaction||event?.data||event?.transaction||event;
-    const externalReference=transaction?.external_reference||transaction?.externalReference||null;
-    const timestamp=extractSignatureTimestamp(signature);
-    const eventId=String(event?.id||event?.event_id||`${transaction?.id||externalReference||'unknown'}:${event?.type||transaction?.status||'event'}:${timestamp}`);
-    const registration=await registerWebhookEvent({eventId,eventType:String(event?.type||transaction?.status||'unknown'),payload:event});
-    if(registration.duplicate)return res.json({received:true,duplicate:true});
-    if(externalReference){
-      const patch={status:mapStatus(transaction?.status||event?.type),provider_transaction_id:transaction?.id||transaction?.transaction_id||null,updated_at:new Date().toISOString()};
-      if(patch.status==='COMPLETED')patch.paid_at=transaction?.paid_at||transaction?.paidAt||new Date().toISOString();
-      await updateDonation(externalReference,patch);
-    }
-    return res.json({received:true});
+    if(String(event?.type||'')!=='Deposit')return res.sendStatus(204);
+    const externalReference=String(event?.external_id||'');
+    const transactionId=String(event?.transaction_id||'');
+    const status=mapStatus(event?.status);
+    if(!externalReference||!transactionId)return res.status(400).json({error:'Webhook inválido.'});
+
+    const eventId=`${transactionId}:${String(event?.status||'UNKNOWN').toUpperCase()}`;
+    const registration=await registerWebhookEvent({eventId,eventType:`Deposit.${event?.status||'UNKNOWN'}`,payload:event});
+    if(registration.duplicate)return res.sendStatus(204);
+
+    const patch={
+      status,
+      provider:'veopag',
+      provider_transaction_id:transactionId,
+      fee_cents:event?.fee==null?null:Math.round(Number(event.fee)*100),
+      provider_payload:event,
+      updated_at:new Date().toISOString()
+    };
+    if(status==='COMPLETED')patch.paid_at=event?.updated_at||new Date().toISOString();
+    await updateDonation(externalReference,patch);
+    return res.sendStatus(204);
   }catch(error){
-    logError('webhook',error);
+    logError('veopag_webhook',error);
     return res.status(400).json({error:'Webhook inválido.'});
   }
 }
-app.post('/webhooks/bravopay',express.raw({type:'application/json',limit:'256kb'}),bravoWebhookHandler);
-app.post('/api/webhooks/bravopay',express.raw({type:'application/json',limit:'256kb'}),bravoWebhookHandler);
+app.post('/webhooks/veopag',express.raw({type:'application/json',limit:'256kb'}),veopagWebhookHandler);
+app.post('/api/webhooks/veopag',express.raw({type:'application/json',limit:'256kb'}),veopagWebhookHandler);
 
 app.use(express.json({limit:'32kb',strict:true}));
 
@@ -64,29 +72,38 @@ app.post('/api/donations/create',createLimiter,requireJson,requireAllowedOrigin,
     if(req.body?.website)return res.status(400).json({error:'Solicitação inválida.'});
     const amount=Number(req.body?.amount);
     if(!allowedAmounts.includes(amount))return res.status(422).json({error:'Valor de doação inválido.'});
-    if(!process.env.BRAVOPAY_API_KEY)return res.status(503).json({error:'Pagamento temporariamente indisponível.'});
+    if(!process.env.VEOPAG_CLIENT_ID||!process.env.VEOPAG_CLIENT_SECRET)return res.status(503).json({error:'Pagamento temporariamente indisponível.'});
     const turnstileOk=await verifyTurnstile(req.body?.turnstileToken,req.ip);
     if(!turnstileOk)return res.status(403).json({error:'Não foi possível validar a solicitação. Atualize a página e tente novamente.'});
 
     const useTestPayers=!production&&String(process.env.USE_TEST_PAYERS||'false').toLowerCase()==='true';
     const submittedName=cleanText(req.body?.name,100);
     const testPayer=useTestPayers?await getRandomTestPayer():null;
-    const customer=testPayer?{name:testPayer.full_name,email:testPayer.email,phone:testPayer.phone,cpf:testPayer.cpf}:{name:submittedName||'Doador anônimo'};
+    const payer=testPayer
+      ?{name:testPayer.full_name,email:testPayer.email,phone:testPayer.phone,document:testPayer.cpf}
+      :{
+        name:submittedName||process.env.VEOPAG_DEFAULT_PAYER_NAME||'Pagamento Digital',
+        email:process.env.VEOPAG_DEFAULT_PAYER_EMAIL||'noreply@pagamento.digital',
+        document:process.env.VEOPAG_DEFAULT_PAYER_DOCUMENT||'',
+        phone:process.env.VEOPAG_DEFAULT_PAYER_PHONE||undefined
+      };
+    if(!payer.document)throw new Error('VEOPAG_DEFAULT_PAYER_DOCUMENT_MISSING');
     const externalId=`amor_${Date.now()}_${crypto.randomBytes(12).toString('hex')}`;
-    const transaction=await createPix({amount,customer,externalReference:externalId,tracking:safeTracking(req.body)});
-    const pixCode=transaction?.pix?.copy_paste||transaction?.pix?.copyPaste||transaction?.pix_code||null;
-    if(!pixCode)throw new Error('PIX_CODE_MISSING');
+    const callbackUrl=String(process.env.VEOPAG_WEBHOOK_URL||'').trim()||undefined;
+    const transaction=await createPix({amount,payer,externalReference:externalId,callbackUrl,tracking:safeTracking(req.body)});
+    const pixCode=transaction.pixCode;
     const qrImage=await QRCode.toDataURL(pixCode,{margin:1,width:640,errorCorrectionLevel:'M'});
     await insertDonation({
-      external_reference:externalId,provider:'bravopay',provider_transaction_id:transaction?.id||null,
-      amount_cents:Math.round(amount*100),status:mapStatus(transaction?.status),donor_name:customer.name||null,
-      donor_email:customer.email||null,donor_phone:customer.phone||null,donor_document:customer.cpf||null,
+      external_reference:externalId,provider:'veopag',provider_transaction_id:transaction.transactionId,
+      amount_cents:Math.round(amount*100),fee_cents:transaction.fee==null?null:Math.round(transaction.fee*100),
+      status:mapStatus(transaction.status),donor_name:payer.name||null,
+      donor_email:payer.email||null,donor_phone:payer.phone||null,donor_document:payer.document||null,
       show_public:!useTestPayers&&Boolean(submittedName)&&req.body?.showPublic===true,pix_copy_paste:pixCode,
-      pix_expires_at:transaction?.pix?.expires_at||transaction?.pix?.expiresAt||null,
-      metadata:{test_payer:useTestPayers,request_id:requestId},...safeTracking(req.body),
+      metadata:{test_payer:useTestPayers,request_id:requestId,idempotent:transaction.idempotent},
+      provider_payload:transaction.raw,...safeTracking(req.body),
       created_at:new Date().toISOString(),updated_at:new Date().toISOString()
     });
-    return res.json({externalId,amount,qrImage,pixCode,expiresAt:transaction?.pix?.expires_at||transaction?.pix?.expiresAt||null});
+    return res.json({externalId,amount,qrImage,pixCode,expiresAt:null});
   }catch(error){
     logError('create_donation',error,{requestId});
     return res.status(502).json({error:'Não foi possível gerar o PIX agora. Tente novamente em alguns instantes.',requestId});
@@ -140,7 +157,54 @@ async function verifyTurnstile(token,ip){
   try{const form=new URLSearchParams({secret:process.env.TURNSTILE_SECRET_KEY,response:String(token),remoteip:String(ip||'')});const response=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',body:form,signal:AbortSignal.timeout(8000)});const data=await response.json();return data?.success===true;}catch{return false;}
 }
 function mapStatus(value){const status=String(value||'').toUpperCase();if(['PAID','APPROVED','COMPLETED','TRANSACTION.PAID','PAYMENT.PAID'].some(x=>status.includes(x)))return'COMPLETED';if(['FAILED','EXPIRED','CANCELED','CANCELLED','REFUNDED','CHARGEBACK'].some(x=>status.includes(x)))return'FAILED';return'PENDING';}
-function extractSignatureTimestamp(header){const match=String(header||'').match(/(?:^|,)\s*t=(\d+)/);return match?Number(match[1]):0;}
-function verifyBravoSignature(raw,header,secret){try{if(!secret||!header)return false;const parts=Object.fromEntries(header.split(',').map(part=>{const i=part.indexOf('=');return i===-1?[part.trim(),'']:[part.slice(0,i).trim(),part.slice(i+1).trim()]}));const timestamp=Number(parts.t);const received=parts.v1||'';if(!timestamp||!received||Math.abs(Date.now()/1000-timestamp)>300)return false;const expected=crypto.createHmac('sha256',secret).update(`${timestamp}.${raw}`).digest('hex');const a=Buffer.from(expected,'utf8');const b=Buffer.from(received,'utf8');return a.length===b.length&&crypto.timingSafeEqual(a,b);}catch{return false;}}
+function verifyVeoPagWebhook(req,raw){
+  try{
+    const expectedCallbackToken=String(process.env.VEOPAG_CALLBACK_TOKEN||'');
+    if(expectedCallbackToken){
+      const authorization=String(req.get('Authorization')||'');
+      const receivedToken=authorization.startsWith('Bearer ')?authorization.slice(7):'';
+      if(!timingSafeStringEqual(expectedCallbackToken,receivedToken))return false;
+    }
+
+    const secret=String(process.env.VEOPAG_WEBHOOK_SIGNATURE||'');
+    if(!secret)return Boolean(expectedCallbackToken);
+    const timestamp=Number(req.get('X-Webhook-Timestamp'));
+    const received=String(req.get('X-Webhook-Signature')||'');
+    if(!timestamp||!received||Math.abs(Math.floor(Date.now()/1000)-timestamp)>300)return false;
+    const expected=crypto.createHmac('sha256',secret).update(`${timestamp}.${raw}`).digest('hex');
+    return timingSafeStringEqual(expected,received);
+  }catch{return false;}
+}
+function timingSafeStringEqual(a,b){
+  const x=Buffer.from(String(a||''),'utf8');
+  const y=Buffer.from(String(b||''),'utf8');
+  return x.length===y.length&&crypto.timingSafeEqual(x,y);
+}
 function logError(scope,error,extra={}){console.error(scope,{...extra,name:error?.name||'Error',code:error?.code||error?.message||'unknown',status:error?.status||undefined});}
-app.listen(process.env.PORT||10000,()=>console.log(`Amor Salva backend ativo na porta ${process.env.PORT||10000}`));
+async function reconcilePendingDonations(){
+  try{
+    const pending=await getPendingDonations();
+    for(const donation of pending){
+      try{
+        const remote=await getDeposit(donation.external_reference);
+        const status=mapStatus(remote?.status);
+        if(status===donation.status)continue;
+        const patch={
+          status,
+          provider_transaction_id:remote?.transaction_id||remote?.transactionId||undefined,
+          fee_cents:remote?.fee==null?undefined:Math.round(Number(remote.fee)*100),
+          provider_payload:remote,
+          updated_at:new Date().toISOString()
+        };
+        Object.keys(patch).forEach((key)=>patch[key]===undefined&&delete patch[key]);
+        if(status==='COMPLETED')patch.paid_at=remote?.updated_at||new Date().toISOString();
+        await updateDonation(donation.external_reference,patch);
+      }catch(error){logError('reconcile_item',error,{externalReference:donation.external_reference});}
+    }
+  }catch(error){logError('reconcile_pending',error);}
+}
+const reconciliationTimer=setInterval(reconcilePendingDonations,Number(process.env.VEOPAG_RECONCILE_INTERVAL_MS||300000));
+reconciliationTimer.unref?.();
+setTimeout(reconcilePendingDonations,15000).unref?.();
+
+app.listen(process.env.PORT||10000,()=>console.log(`Backend Maria Sônia e Ana Júlia ativo na porta ${process.env.PORT||10000}`));

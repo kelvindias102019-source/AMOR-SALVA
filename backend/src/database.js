@@ -30,6 +30,20 @@ export async function getDonation(ref){
   return data;
 }
 
+export async function getPendingDonations(){
+  if(!db)return [];
+  const cutoff=new Date(Date.now()-10*60_000).toISOString();
+  const{data,error}=await db.from('donations')
+    .select('external_reference,status,updated_at')
+    .eq('provider','veopag')
+    .in('status',['PENDING','PROCESSING','QUEUE'])
+    .lt('updated_at',cutoff)
+    .order('updated_at',{ascending:true})
+    .limit(50);
+  if(error)throw error;
+  return data||[];
+}
+
 export async function paidTotal(){
   if(!db)return 0;
   const{data,error}=await db.rpc('get_paid_donation_total');
@@ -51,7 +65,7 @@ export async function getRandomTestPayer(){
 export async function registerWebhookEvent({eventId,eventType,payload}){
   if(!db)return {duplicate:false};
   const{error}=await db.from('webhook_events').insert({
-    provider:'bravopay',provider_event_id:eventId,event_type:eventType,payload
+    provider:'veopag',provider_event_id:eventId,event_type:eventType,payload
   });
   if(error?.code==='23505')return {duplicate:true};
   if(error)throw error;
