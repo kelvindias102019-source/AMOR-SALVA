@@ -64,9 +64,23 @@ export async function getRandomTestPayer(){
 
 export async function registerWebhookEvent({eventId,eventType,payload}){
   if(!db)return {duplicate:false};
-  const{error}=await db.from('webhook_events').insert({
-    provider:'veopag',provider_event_id:eventId,event_type:eventType,payload
+
+  const transactionId=payload?.transaction_id||payload?.transactionId||null;
+  const externalReference=payload?.external_id||payload?.external_reference||null;
+  const status=String(payload?.status||'').toUpperCase()||null;
+
+  const{error}=await db.from('veopag_webhook_events').insert({
+    provider:'veopag',
+    provider_event_id:eventId,
+    transaction_id:transactionId,
+    external_reference:externalReference,
+    event_type:eventType,
+    status,
+    signature_valid:true,
+    payload,
+    processed_at:new Date().toISOString()
   });
+
   if(error?.code==='23505')return {duplicate:true};
   if(error)throw error;
   return {duplicate:false};
