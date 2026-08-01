@@ -1,707 +1,554 @@
 import './styles.css';
 
-const API = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
-const TURNSTILE_SITE_KEY = String(import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
-let turnstileWidgetId = null;
-const VALUES = [10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000];
-const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const slides = [
-  { record: '01', src: '/assets/1.png', title: 'O suplemento faz parte da rotina', text: 'A alimentação clínica é importante para Ana Júlia manter as forças e receber o suporte nutricional necessário no dia a dia.' },
-  { record: '02', src: '/assets/2.png', title: 'Mãe e filha enfrentam essa luta juntas', text: 'Maria Sônia dedica sua rotina aos cuidados da filha, acompanhando cada necessidade com atenção e carinho.' },
-  { record: '03', src: '/assets/3.png', title: 'Cada contribuição ajuda de verdade', text: 'Mesmo uma doação de menor valor pode colaborar com fraldas, higiene, alimentação e outras despesas contínuas.' },
-  { record: '04', src: '/assets/4.png', title: 'A preocupação com a moradia', text: 'A família precisa preservar um lugar seguro para viver e continuar os cuidados de Ana Júlia com mais estabilidade.' },
-  { record: '05', src: '/assets/6.png', title: 'Uma rotina marcada pela urgência', text: 'Os gastos são contínuos e a família precisa de apoio para não interromper itens indispensáveis.' },
-  { record: '06', src: '/assets/7.png', title: 'Ana Júlia precisa de cuidados constantes', text: 'A condição dela exige atenção integral, alimentação adequada, higiene e acompanhamento diário.' },
-  { record: '07', src: '/assets/8.png', title: 'O risco de perder o lar', text: 'A insegurança da moradia aumenta o peso vivido pela família e torna a campanha ainda mais urgente.' },
-  { record: '08', src: '/assets/9.png', title: 'A cadeira atual já não atende bem', text: 'Uma estrutura adequada ajuda a oferecer mais segurança, conforto e dignidade durante os cuidados.' },
-  { record: '09', src: '/assets/10.png', title: 'Até o banho exige estrutura e apoio', text: 'Atividades básicas da rotina se tornam difíceis sem equipamentos e um ambiente adaptado às necessidades de Ana Júlia.' }
-];
-const supporters = [
-  ['AN', 'Ana M.', 'Há 2 min', 50],
-  ['CR', 'Carlos R.', 'Há 12 min', 100],
-  ['MP', 'Muralha P.', 'Há 20 min', 50],
-  ['MS', 'Maria S.', 'Há 34 min', 200],
-];
+'use strict';
 
-const app = document.querySelector('#app');
-app.innerHTML = `
-  <header class="site-header">
-    <div class="page-shell header-inner">
-      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="siteMenu">
-        <span></span><span></span><span></span>
-      </button>
-      <a class="brand" href="#inicio" aria-label="Amor Salva — início">
-        <img src="/assets/logo-amor-salva-icon.png" alt="Símbolo do Instituto Amor Salva">
-        <span class="brand-copy"><strong>Amor Salva</strong><small>Instituto de apoio solidário</small></span>
-      </a>
-      <span class="header-spacer" aria-hidden="true"></span>
-    </div>
-    <nav class="mobile-menu" id="siteMenu" aria-label="Navegação principal">
-      <div class="page-shell mobile-menu-inner">
-        <a href="#quem-somos">Quem somos</a>
-        <a href="#campanha">Campanha</a>
-        <a href="#transparencia">Transparência</a>
-      </div>
-    </nav>
-  </header>
-
-  <main id="inicio">
-    <section class="vsl-first page-shell" aria-labelledby="vslTitle">
-      <section class="vsl-card">
-        <div class="vsl-heading">
-          <h1 id="vslTitle">Conheça a realidade de Maria Sônia e Ana Júlia</h1>
-          <p>Veja por que esta família precisa de apoio para manter a moradia e os cuidados essenciais.</p>
-        </div>
-        <div class="video-stage" id="videoStage">
-          <video id="campaignVideo" playsinline preload="auto" controlslist="nodownload noplaybackrate nofullscreen noremoteplayback" disablepictureinpicture poster="/assets/banner-principal.jpg" aria-label="Vídeo da campanha. O vídeo inicia automaticamente sem som; toque para pausar ou continuar.">
-            <source src="/assets/historia-amor-salva.mp4" type="video/mp4">
-            Seu navegador não suporta vídeo HTML5.
-          </video>
-          <button class="video-play-overlay" id="videoPlayOverlay" type="button" aria-label="Reproduzir vídeo">
-            <span class="video-play-icon" aria-hidden="true"></span>
-            <strong id="videoCountdown">Começando em 2...</strong>
-          </button>
-          <button class="video-audio-prompt" id="videoAudioPrompt" type="button" aria-label="Ativar áudio do vídeo">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="m17 9 4 4m0-4-4 4"></path></svg>
-            <strong>Clique para ativar o áudio</strong>
-          </button>
-        </div>
-        <div class="video-progress" aria-label="Progresso visual do vídeo"><span id="fakeVideoProgress"></span></div>
-        <div class="video-control-row">
-          <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="false">
-            <span id="soundIcon" aria-hidden="true">🔊</span>
-            <span id="soundLabel">Áudio ligado</span>
-          </button>
-          <span class="video-status" id="videoStatus">Toque no vídeo para começar</span>
-        </div>
-        <p class="video-note"><span></span> Assista até o fim para conhecer toda a história.</p>
-      </section>
-    </section>
-
-    <section class="hero page-shell" id="campanha">
-      <div class="hero-copy">
-        <span class="eyebrow">CAMPANHA SOLIDÁRIA • AMOR SALVA</span>
-        <h2>Ajude Maria Sônia e Ana Júlia a manterem um lar seguro</h2>
-        <img class="hero-banner" src="/assets/banner-principal.jpg" alt="Precisamos da sua ajuda para ter onde morar">
-        <p>Maria Sônia dedica todos os dias aos cuidados da filha Ana Júlia, que vive com paralisia cerebral severa e precisa de atenção integral. Hoje, elas enfrentam despesas essenciais e o risco de perder a moradia.</p>
-        <div class="hero-actions hero-actions-single">
-          <a class="button button-ghost" href="#historia">Conhecer a história</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="progress-wrap page-shell" aria-label="Progresso da campanha">
-      <div class="progress-card">
-        <div class="progress-top">
-          <div>
-            <span>Já arrecadamos</span>
-            <strong id="raised">R$ 27.847,00</strong>
-          </div>
-          <b id="percent">21,4%</b>
-        </div>
-        <div class="progress-track"><span id="bar" style="width:21.4%"></span></div>
-        <div class="progress-bottom"><span>Meta: <strong id="goal">R$ 130.000,00</strong></span><span>Campanha ativa</span></div>
-      </div>
-    </section>
-
-    <section class="donation-section page-shell" id="doar">
-      <div class="donation-callout">
-        <div>
-          <span class="eyebrow">SUA AJUDA FAZ DIFERENÇA</span>
-          <h2>Ajude a manter um lar seguro e os cuidados essenciais</h2>
-          <p>Ao tocar no botão, você escolhe o valor dentro de uma janela segura. O nome é opcional e a contribuição pode ser anônima.</p>
-        </div>
-        <button class="button button-primary donation-main-button" data-donate>
-          <span class="donation-heart">♥</span> Doar agora
-        </button>
-      </div>
-    </section>
-
-    <section class="institute-profile page-shell" aria-labelledby="instituteProfileTitle">
-      <div class="institute-profile-card">
-        <div class="institute-profile-logo institute-profile-logo-full">
-          <img src="/assets/logo-amor-salva-completa.png" alt="Instituto Amor Salva">
-        </div>
-        <div class="institute-profile-copy">
-          <span class="eyebrow">RESPONSÁVEL PELA CAMPANHA</span>
-          <h2 id="instituteProfileTitle">Instituto Amor Salva</h2>
-          <ul class="institute-data">
-            <li><span class="institute-data-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span><strong>@instituto_amor_salva</strong></li>
-            <li><span class="institute-data-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.6"/></svg></span><strong>Belo Horizonte, Minas Gerais</strong></li>
-            <li><span class="institute-data-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span><strong>CNPJ: 77.260.528/0001-24</strong></li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section class="story-section" id="historia">
-      <div class="page-shell story-grid">
-        <div class="story-content">
-          <span class="eyebrow">A HISTÓRIA DELAS</span>
-          <h2>Uma vida inteira dedicada ao cuidado</h2>
-          <p>Durante a gravidez, Maria Sônia enfrentou dengue hemorrágica. Ana Júlia nasceu com hidrocefalia e paralisia cerebral severa e, desde então, necessita de cuidados constantes.</p>
-          <p>As despesas incluem fraldas especiais, medicamentos neurológicos, alimentação clínica e uma moradia segura e adaptada. A renda atual não é suficiente para cobrir tudo.</p>
-          <blockquote>“Choro escondida para não desanimar meus filhos. Se eu fraquejar, quem cuidará da Júlia? Ela é toda a minha vida.”</blockquote>
-        </div>
-        <div class="story-highlight">
-          <div class="support-needs-heading">
-            <span>ONDE SUA AJUDA CHEGA</span>
-            <h3>Elas precisam de apoio todos os dias</h3>
-            <p>Cada contribuição ajuda a sustentar uma parte essencial da rotina da família.</p>
-          </div>
-          <div class="support-needs-grid">
-            <article class="support-need-item">
-              <span class="support-need-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5z"/><path d="M9 21v-6h6v6"/></svg>
-              </span>
-              <div><h4>Moradia segura</h4><p>Um lar estável e adaptado para os cuidados de Ana Júlia.</p></div>
-            </article>
-            <article class="support-need-item">
-              <span class="support-need-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M8 3h8v4H8z"/><path d="M7 7h10l1 3v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9z"/><path d="M9 13h6M12 10v6"/></svg>
-              </span>
-              <div><h4>Fraldas e higiene</h4><p>Itens usados diariamente para garantir conforto e dignidade.</p></div>
-            </article>
-            <article class="support-need-item">
-              <span class="support-need-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M9 3h6v4H9z"/><path d="M8 7h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/><path d="M9 14h6M12 11v6"/></svg>
-              </span>
-              <div><h4>Medicamentos contínuos</h4><p>Tratamentos que não podem ser interrompidos.</p></div>
-            </article>
-            <article class="support-need-item">
-              <span class="support-need-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M5 4v7a3 3 0 0 0 6 0V4M8 4v17M16 4v17M16 4c3 2 3 7 0 9"/></svg>
-              </span>
-              <div><h4>Alimentação e cuidados</h4><p>Suplementos, alimentação clínica e despesas da rotina.</p></div>
-            </article>
-          </div>
-          <button class="button button-primary support-needs-button" data-donate>Fazer minha parte</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="gallery-section page-shell">
-      <div class="section-heading">
-        <span class="eyebrow">REGISTROS DA CAMPANHA</span>
-        <h2>Conheça um pouco da rotina da família</h2>
-      </div>
-      <div class="gallery-track">
-        ${slides.map((slide, i) => `
-          <article class="gallery-card">
-            <img src="${slide.src}" alt="${slide.title}" loading="lazy">
-            <div class="gallery-caption">
-              <span>REGISTRO ${slide.record}</span>
-              <h3>${slide.title}</h3>
-              <p>${slide.text}</p>
-            </div>
-          </article>`).join('')}
-      </div>
-    </section>
-
-    <section class="impact-section">
-      <div class="page-shell">
-        <div class="section-heading light centered">
-          <span class="eyebrow">SEU APOIO TEM IMPACTO</span>
-          <h2>Veja como cada contribuição pode ajudar</h2>
-        </div>
-        <div class="impact-grid">
-          <article><strong>R$ 30</strong><p>Ajuda com fraldas e itens básicos de higiene.</p></article>
-          <article><strong>R$ 100</strong><p>Contribui para medicamentos e insumos contínuos.</p></article>
-          <article><strong>R$ 300</strong><p>Apoia alimentação clínica e despesas essenciais.</p></article>
-          <article><strong>R$ 500</strong><p>Ajuda na manutenção de uma moradia segura.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="needs-section page-shell">
-      <div class="section-heading">
-        <span class="eyebrow">NECESSIDADES CONTÍNUAS</span>
-        <h2>Cuidados que não podem esperar</h2>
-      </div>
-      <div class="needs-grid">
-        <article class="need-card"><img src="/assets/hidantal.jpg" alt="Medicamento"><div><h3>Medicamentos neurológicos</h3><p>Uso contínuo conforme acompanhamento médico.</p></div></article>
-        <article class="need-card"><img src="/assets/7.png" alt="Cuidados diários"><div><h3>Cuidados diários</h3><p>Fraldas, alimentação, higiene e suporte integral.</p></div></article>
-        <article class="need-card"><img src="/assets/8.png" alt="Moradia"><div><h3>Moradia segura</h3><p>Apoio para preservar um lar adequado às necessidades da família.</p></div></article>
-      </div>
-    </section>
-
-    <section class="supporters-section page-shell">
-      <div class="section-heading">
-        <span class="eyebrow">CORRENTE DO BEM</span>
-        <h2>Últimas contribuições</h2>
-      </div>
-      <div class="support-list">
-        ${supporters.map(s => `<article><span class="avatar">${s[0]}</span><div><b>${s[1]}</b><small>${s[2]}</small></div><strong>${money.format(s[3])}</strong></article>`).join('')}
-      </div>
-    </section>
-
-    <section class="updates-section page-shell">
-      <div class="info-card">
-        <div class="info-heading">
-          <span class="info-icon" aria-hidden="true">◷</span>
-          <h2>Acompanhe as Atualizações</h2>
-        </div>
-        <div class="updates-list">
-          <article class="update-item">
-            <span class="update-date">14 de Julho</span>
-            <h3>Benefício cortado</h3>
-            <p>O auxílio governamental essencial foi suspenso temporariamente, gerando pânico imediato na família.</p>
-          </article>
-          <article class="update-item">
-            <span class="update-date">01 de Julho</span>
-            <h3>Risco de despejo</h3>
-            <p>Sem recursos para o aluguel adaptado para acessibilidade, a família recebeu uma notificação de desocupação.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="trust-faq-section page-shell" id="transparencia">
-      <div class="info-card">
-        <div class="info-heading">
-          <span class="info-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
-          <h2>Transparência e Respostas</h2>
-        </div>
-        <div class="trust-badges">
-          <article class="trust-badge">
-            <span class="trust-badge-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>
-            </span>
-            <div><strong>Campanha 100% real</strong><small>História e necessidades apresentadas com clareza</small></div>
-          </article>
-          <article class="trust-badge">
-            <span class="trust-badge-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-            </span>
-            <div><strong>Doação protegida</strong><small>Pagamento gerado em ambiente seguro</small></div>
-          </article>
-          <article class="trust-badge">
-            <span class="trust-badge-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg>
-            </span>
-            <div><strong>Contas auditadas</strong><small>Uso dos recursos acompanhado e organizado</small></div>
-          </article>
-        </div>
-        <div class="faq-list">
-          <details open>
-            <summary>A doação é segura?</summary>
-            <p>Sim. O pagamento é gerado em ambiente protegido e a confirmação acontece somente após o sistema receber o retorno oficial da cobrança.</p>
-          </details>
-          <details>
-            <summary>Como os fundos serão usados?</summary>
-            <p>Os recursos serão direcionados para moradia, alimentação clínica, fraldas, medicamentos, higiene e demais necessidades ligadas à rotina de Ana Júlia e Maria Sônia.</p>
-          </details>
-          <details>
-            <summary>Posso doar outros valores?</summary>
-            <p>Sim. Os valores sugeridos foram pensados para facilitar a contribuição, mas a campanha pode receber outros apoios conforme a configuração do pagamento.</p>
-          </details>
-        </div>
-      </div>
-    </section>
-
-    <section class="about-institute" id="quem-somos">
-      <div class="page-shell about-institute-grid">
-        <div class="about-institute-mark about-institute-mark-full">
-          <img src="/assets/logo-amor-salva-completa.png" alt="Instituto Amor Salva">
-        </div>
-        <div class="about-institute-copy">
-          <span class="eyebrow">QUEM SOMOS</span>
-          <h2>Um instituto criado para transformar solidariedade em apoio real</h2>
-          <p>O Instituto Amor Salva atua mobilizando pessoas em torno de famílias que enfrentam situações urgentes, conectando quem precisa de ajuda a quem deseja colaborar.</p>
-          <p>Nossa missão é dar visibilidade a histórias que não podem esperar e direcionar apoio para necessidades essenciais, como moradia, alimentação, saúde, higiene e cuidados contínuos.</p>
-          <div class="about-institute-values">
-            <span>Transparência</span><span>Acolhimento</span><span>Responsabilidade</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="final-cta">
-      <div class="page-shell final-card">
-        <img src="/assets/logo-amor-salva.png" alt="Amor Salva">
-        <div><span class="eyebrow">AMOR SALVA</span><h2>Juntos podemos aliviar esse peso</h2><p>Escolha um valor e ajude Maria Sônia e Ana Júlia a seguirem com mais segurança e dignidade.</p></div>
-        <button class="button button-primary" data-donate>Doar agora</button>
-      </div>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="page-shell footer-inner">
-      <a class="footer-brand" href="#inicio">
-        <img src="/assets/logo-amor-salva-icon.png" alt="Instituto Amor Salva">
-        <span><strong>Instituto Amor Salva</strong><small>Solidariedade que acolhe</small></span>
-      </a>
-      <nav class="footer-nav" aria-label="Links do rodapé">
-        <a href="#quem-somos">Quem somos</a>
-        <a href="#campanha">Campanha</a>
-        <a href="#transparencia">Transparência</a>
-      </nav>
-      <p>© 2024 Instituto Amor Salva. Todos os direitos reservados.</p>
-    </div>
-  </footer>
-
-  <button class="sticky-donate" data-donate>Fazer minha parte</button>
-
-  <div class="modal" id="modal" aria-hidden="true">
-    <div class="backdrop" data-close></div>
-    <section class="sheet" role="dialog" aria-modal="true" aria-label="Fazer doação">
-      <button class="close" data-close aria-label="Fechar">×</button>
-      <div id="valueStep" class="step active">
-        <span class="eyebrow">AJUDE COM O VALOR QUE PUDER</span>
-        <h2>Escolha sua contribuição</h2>
-        <div class="value-grid">${VALUES.map(v => `<button data-value="${v}">${money.format(v).replace(',00','')}</button>`).join('')}</div>
-        <p class="secure">Pagamento por PIX gerado com segurança.</p>
-      </div>
-      <form id="donorForm" class="step">
-        <button class="back" type="button" id="backValues">← Alterar valor</button>
-        <p class="selected">Doação de <b id="selectedValue"></b></p>
-        <label>Seu nome <span>(opcional)</span><input name="name" maxlength="100" placeholder="Deixe vazio para doar anonimamente"></label>
-        <label class="check"><input type="checkbox" name="showPublic"> Mostrar meu nome entre os apoiadores</label>
-        <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <div id="turnstileContainer" class="turnstile-container" aria-label="Verificação de segurança"></div>
-        <button class="button button-primary full" id="generate" type="submit">Gerar QR Code PIX</button>
-        <p class="error" id="error"></p>
-      </form>
-      <div id="pixStep" class="step pix">
-        <h2>Escaneie para doar</h2>
-        <p>Valor: <b id="pixAmount"></b></p>
-        <div class="qr"><img id="qrImage" alt="QR Code PIX"></div>
-        <label class="pix-copy-label" for="pixCopyCode">PIX copia e cola</label>
-        <textarea id="pixCopyCode" class="pix-copy-code" readonly aria-label="Código PIX copia e cola"></textarea>
-        <button class="button button-ghost full" id="copyPixButton" type="button">Copiar código PIX</button>
-        <p class="waiting"><span></span>Aguardando confirmação do pagamento…</p>
-        <button class="button button-ghost full" data-close>Fechar</button>
-      </div>
-      <div id="successStep" class="step success"><div>✓</div><h2>Doação confirmada</h2><p>Obrigado por fazer parte desta corrente de amor.</p><button class="button button-primary full" data-close>Concluir</button></div>
-    </section>
-  </div>`;
-
-
-
-function renderTurnstile() {
-  if (!TURNSTILE_SITE_KEY || !window.turnstile || turnstileWidgetId !== null) return;
-  const container = document.querySelector('#turnstileContainer');
-  if (!container) return;
-  turnstileWidgetId = window.turnstile.render(container, {
-    sitekey: TURNSTILE_SITE_KEY,
-    theme: 'light',
-    size: 'flexible'
-  });
+/* Sempre abre a página no topo, inclusive ao voltar pelo navegador. */
+if ('scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
 }
-window.onTurnstileLoad = renderTurnstile;
 
-const copyPixButton = document.querySelector('#copyPixButton');
-copyPixButton?.addEventListener('click', async () => {
-  const pixCopyCode = document.querySelector('#pixCopyCode');
-  const code = pixCopyCode?.value || '';
-  if (!code) return;
-  try {
-    await navigator.clipboard.writeText(code);
-    copyPixButton.textContent = 'Código copiado';
-  } catch {
-    pixCopyCode.focus();
-    pixCopyCode.select();
-    document.execCommand('copy');
-    copyPixButton.textContent = 'Código copiado';
-  }
-  window.setTimeout(() => { copyPixButton.textContent = 'Copiar código PIX'; }, 1800);
+window.addEventListener('pageshow', () => {
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
 });
 
+const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '')
+  .trim()
+  .replace(/\/$/, '');
+
+function apiUrl(pathname) {
+  const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  return `${API_BASE_URL}${path}`;
+}
+
+if (!API_BASE_URL) {
+  console.warn('Configure VITE_API_BASE_URL na Vercel com a URL pública do backend no Render.');
+}
+
+const META_PIXEL_ID = '2279794442426700';
+
+function initMetaPixel() {
+  if (typeof window.fbq === 'function') return;
+  const fbq = function () {
+    fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments);
+  };
+  window.fbq = fbq;
+  if (!window._fbq) window._fbq = fbq;
+  fbq.push = fbq;
+  fbq.loaded = true;
+  fbq.version = '2.0';
+  fbq.queue = [];
+  fbq('init', META_PIXEL_ID);
+  fbq('track', 'PageView');
+}
+
+function trackMeta(eventName, params = {}, options = {}) {
+  try {
+    initMetaPixel();
+    window.fbq('track', eventName, params, options);
+  } catch (error) {
+    console.warn('Falha ao registrar evento do Meta Pixel:', error);
+  }
+}
+
+initMetaPixel();
+
+const AMOUNTS = [5,20,30,50,70,100,150,200,300,500,700,1000,1500,2000];
+const NOTES = {5:'Qualquer valor faz diferença.',20:'Ajuda nas despesas imediatas.',30:'Contribui com itens de cuidado.',50:'Ajuda na alimentação especial.',70:'Contribui para medicamentos básicos.',100:'Ajuda no acompanhamento do tratamento.',150:'Apoia insumos e cuidados.',200:'Ajuda nas despesas mensais.',300:'Contribui com consultas e exames.',500:'Apoio importante para medicamentos.',700:'Ajuda ampla no tratamento.',1000:'Contribuição de grande impacto.',1500:'Apoio essencial para vários meses.',2000:'Ajuda de enorme impacto.'};
+const currency = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const donationModal = document.querySelector('#donation-modal');
+const urgencyModal = document.querySelector('#urgency-modal');
+const valuesStep = document.querySelector('#donation-step-values');
+const donorForm = document.querySelector('#donor-form');
+const pixStep = document.querySelector('#pix-step');
+const successStep = document.querySelector('#success-step');
+const formError = document.querySelector('#form-error');
 let selectedAmount = null;
-let poll = null;
-const modal = document.querySelector('#modal');
-const menuToggle = document.querySelector('#menuToggle');
-const siteMenu = document.querySelector('#siteMenu');
-const closeSiteMenu = () => {
-  siteMenu?.classList.remove('is-open');
-  menuToggle?.classList.remove('is-open');
-  menuToggle?.setAttribute('aria-expanded', 'false');
-};
-menuToggle?.addEventListener('click', () => {
-  const open = !siteMenu?.classList.contains('is-open');
-  siteMenu?.classList.toggle('is-open', open);
-  menuToggle.classList.toggle('is-open', open);
-  menuToggle.setAttribute('aria-expanded', String(open));
-});
-document.querySelectorAll('#siteMenu a, .footer-nav a').forEach(link => link.addEventListener('click', closeSiteMenu));
+let pollTimer = null;
 
-const steps = [...document.querySelectorAll('.step')];
-const showStep = id => steps.forEach(s => s.classList.toggle('active', s.id === id));
-
-function openDonation(amount) {
-  modal.classList.add('open');
-  window.setTimeout(renderTurnstile, 80);
-  modal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('lock');
-  if (amount) {
-    selectedAmount = Number(amount);
-    document.querySelector('#selectedValue').textContent = money.format(selectedAmount);
-    showStep('donorForm');
-  } else {
-    showStep('valueStep');
+function setModalOpen(modal, open) {
+  modal.classList.toggle('open', open);
+  modal.setAttribute('aria-hidden', String(!open));
+  if (modal === donationModal) {
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+  if (!open && modal === donationModal) {
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
 }
-
-function closeDonation() {
-  modal.classList.remove('open');
-  modal.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('lock');
-  clearInterval(poll);
+function showStep(step){[valuesStep,donorForm,pixStep,successStep].forEach(el=>el.classList.toggle('active',el===step))}
+function openDonation(amount){setModalOpen(urgencyModal,false);setModalOpen(donationModal,true);showStep(valuesStep);trackMeta('InitiateCheckout',{content_name:'Doação Sônia',currency:'BRL'});if(amount)chooseAmount(Number(amount))}
+function closeDonation(){setModalOpen(donationModal,false);showStep(valuesStep);donorForm.reset();formError.textContent='';selectedAmount=null;document.querySelectorAll('.amount-button').forEach(b=>b.classList.remove('selected'))}
+function chooseAmount(amount) {
+  selectedAmount = amount;
+  document.querySelectorAll('.amount-button').forEach((b) => b.classList.toggle('selected', Number(b.dataset.amount) === amount));
+  const amountNote = document.querySelector('#amount-note');
+  if (amountNote) amountNote.textContent = NOTES[amount] || 'Cada valor ajuda.';
+  document.querySelector('#selected-amount-label').textContent = currency.format(amount);
+  setTimeout(() => showStep(donorForm), 120);
 }
 
-document.querySelectorAll('[data-donate]').forEach(b => b.addEventListener('click', () => openDonation()));
-document.querySelectorAll('[data-quick-donate]').forEach(b => b.addEventListener('click', () => openDonation(b.dataset.quickDonate)));
-document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeDonation));
-document.querySelectorAll('[data-value]').forEach(b => b.addEventListener('click', () => {
-  selectedAmount = Number(b.dataset.value);
-  document.querySelector('#selectedValue').textContent = money.format(selectedAmount);
-  showStep('donorForm');
-}));
-document.querySelector('#backValues').addEventListener('click', () => showStep('valueStep'));
+const amountGrid=document.querySelector('#amount-grid');
+AMOUNTS.forEach(amount=>{const b=document.createElement('button');b.type='button';b.dataset.amount=amount;b.className=`amount-button${amount===100?' popular':''}`;b.textContent=currency.format(amount).replace(/\s/g,'').replace(',00','');b.addEventListener('click',()=>chooseAmount(amount));amountGrid.appendChild(b)});
 
-document.querySelector('#donorForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const error = document.querySelector('#error');
-  error.textContent = '';
-  const btn = document.querySelector('#generate');
-  btn.disabled = true;
-  btn.textContent = 'Gerando…';
-  const fd = new FormData(e.currentTarget);
-  const name = String(fd.get('name') || '').trim();
-  const turnstileToken = TURNSTILE_SITE_KEY && window.turnstile && turnstileWidgetId !== null ? window.turnstile.getResponse(turnstileWidgetId) : '';
-  const payload = { amount: selectedAmount, name, website: String(fd.get('website') || ''), turnstileToken, showPublic: Boolean(name) && fd.get('showPublic') === 'on', ...tracking() };
-  try {
-    if (!API) throw new Error('O pagamento ainda não foi configurado.');
-    if (TURNSTILE_SITE_KEY && !turnstileToken) throw new Error('Confirme a verificação de segurança.');
-    const response = await fetch(`${API}/api/donations/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Não foi possível gerar o PIX.');
-    document.querySelector('#qrImage').src = data.qrImage;
-    document.querySelector('#pixAmount').textContent = money.format(data.amount);
-    document.querySelector('#pixCopyCode').value = data.pixCode || '';
-    showStep('pixStep');
-    startPolling(data.externalId);
-  } catch (err) {
-    error.textContent = err.message;
-    if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Gerar QR Code PIX';
+document.querySelectorAll('[data-open-donation]').forEach(b=>b.addEventListener('click',()=>openDonation()));
+document.querySelectorAll('[data-close-modal]').forEach(b=>b.addEventListener('click',closeDonation));
+document.querySelector('[data-back-values]').addEventListener('click',()=>showStep(valuesStep));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(donationModal.classList.contains('open'))closeDonation();if(urgencyModal.classList.contains('open'))setModalOpen(urgencyModal,false)}});
+
+function collectUtms(){const p=new URLSearchParams(location.search);const keys=['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid','ttclid'];const result={};keys.forEach(key=>{const value=p.get(key)||sessionStorage.getItem(key);if(value&&!value.includes('{{')){result[key]=value.slice(0,key==='utm_medium'?64:(['fbclid','gclid','ttclid'].includes(key)?500:255));sessionStorage.setItem(key,result[key])}});return result}
+function readCookie(name){const prefix=`${name}=`;const item=document.cookie.split(';').map(v=>v.trim()).find(v=>v.startsWith(prefix));return item?decodeURIComponent(item.slice(prefix.length)):''}
+function collectMetaIdentifiers(){const tracking=collectUtms();const fbp=readCookie('_fbp');let fbc=readCookie('_fbc');if(!fbc&&tracking.fbclid)fbc=`fb.1.${Date.now()}.${tracking.fbclid}`;return{fbp:fbp||null,fbc:fbc||null,event_source_url:`${location.origin}${location.pathname}`}}
+collectUtms();
+
+
+
+const publicNameInput = donorForm.elements.name;
+const showPublicInput = donorForm.elements.showPublic;
+
+// O nome é totalmente opcional. A pessoa pode gerar o PIX anonimamente.
+showPublicInput.addEventListener('change', () => {
+  formError.textContent = '';
+  if (showPublicInput.checked && publicNameInput.value.trim().length < 2) {
+    publicNameInput.focus();
   }
 });
 
-function tracking() {
-  const params = new URLSearchParams(location.search);
-  const output = {};
-  ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid','ttclid'].forEach(key => {
-    const value = params.get(key);
-    if (value) output[key] = value;
-  });
-  return output;
-}
+publicNameInput.addEventListener('input', () => {
+  formError.textContent = '';
+});
 
-function startPolling(id) {
-  clearInterval(poll);
-  const check = async () => {
-    try {
-      const response = await fetch(`${API}/api/donations/${encodeURIComponent(id)}/status`, { cache: 'no-store' });
-      if (!response.ok) return;
-      const data = await response.json();
-      if (data.status === 'COMPLETED') {
-        clearInterval(poll);
-        showStep('successStep');
-        loadCampaign();
-      }
-    } catch {}
-  };
-  check();
-  poll = setInterval(check, 5000);
-}
+donorForm.addEventListener('submit',async e=>{e.preventDefault();formError.textContent='';if(!selectedAmount){showStep(valuesStep);return}if(!donorForm.reportValidity())return;const button=document.querySelector('#generate-pix');button.disabled=true;button.classList.add('is-loading');button.textContent='Gerando PIX…';const form=new FormData(donorForm);const donorName=String(form.get('name')||'').trim();const showPublic=donorName.length>=2&&form.get('showPublic')==='on';const payload={amount:selectedAmount,name:donorName,showPublic,...collectUtms(),...collectMetaIdentifiers()};try{const response=await fetch(apiUrl('/api/donations/create'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Não foi possível gerar o PIX.');document.querySelector('#pix-qr').src=data.qrImage;document.querySelector('#pix-code').value=data.pixCode;document.querySelector('#pix-amount').textContent=currency.format(data.amount);trackMeta('AddPaymentInfo',{content_name:'Doação Sônia',currency:'BRL',value:Number(data.amount)});showStep(pixStep);startPolling(data.externalId)}catch(error){formError.textContent=error.message}finally{button.disabled=false;button.classList.remove('is-loading');button.textContent='Gerar PIX'}});
 
-const campaignVideo = document.querySelector('#campaignVideo');
-const fakeVideoProgress = document.querySelector('#fakeVideoProgress');
-const videoStage = document.querySelector('#videoStage');
-const videoPlayOverlay = document.querySelector('#videoPlayOverlay');
-const soundToggle = document.querySelector('#soundToggle');
-const videoAudioPrompt = document.querySelector('#videoAudioPrompt');
-const soundIcon = document.querySelector('#soundIcon');
-const soundLabel = document.querySelector('#soundLabel');
-const videoStatus = document.querySelector('#videoStatus');
-let visualProgressFrame = null;
-let autoplayCountdownActive = true;
-let autoplayCountdownStarted = false;
+document.querySelector('#copy-pix').addEventListener('click',async()=>{const code=document.querySelector('#pix-code').value;try{await navigator.clipboard.writeText(code)}catch{document.querySelector('#pix-code').select();document.execCommand('copy')}const b=document.querySelector('#copy-pix');const old=b.textContent;b.textContent='Código copiado!';setTimeout(()=>b.textContent=old,1800)});
 
-function stopVisualProgressLoop() {
-  if (visualProgressFrame !== null) {
-    cancelAnimationFrame(visualProgressFrame);
-    visualProgressFrame = null;
-  }
-}
+function startPolling(externalId){clearInterval(pollTimer);const check=async()=>{try{const response=await fetch(apiUrl(`/api/donations/${encodeURIComponent(externalId)}/status`),{cache:'no-store'});if(!response.ok)return;const data=await response.json();if(data.status==='COMPLETED'){clearInterval(pollTimer);pollTimer=null;const purchaseKey=`meta_purchase_${externalId}`;if(!sessionStorage.getItem(purchaseKey)){trackMeta('Purchase',{content_name:'Doação Sônia',currency:'BRL',value:Number(data.amount||selectedAmount||0)},{eventID:externalId});sessionStorage.setItem(purchaseKey,'1')}showStep(successStep);loadCampaign()}else if(data.status==='FAILED'){clearInterval(pollTimer);pollTimer=null;document.querySelector('#payment-status').innerHTML='<span>Não foi possível confirmar esta cobrança. Gere um novo PIX.</span>'}}catch{}};check();pollTimer=setInterval(check,5000)}
 
-function startVisualProgressLoop() {
-  stopVisualProgressLoop();
-  const tick = () => {
-    updateVisualVideoProgress();
-    if (campaignVideo && !campaignVideo.paused && !campaignVideo.ended) {
-      visualProgressFrame = requestAnimationFrame(tick);
-    } else {
-      visualProgressFrame = null;
-    }
-  };
-  visualProgressFrame = requestAnimationFrame(tick);
-}
-
-function updateVisualVideoProgress() {
-  if (!campaignVideo || !fakeVideoProgress) return;
-  const duration = Number(campaignVideo.duration);
-  const current = Number(campaignVideo.currentTime);
-  if (!Number.isFinite(duration) || duration <= 0) {
-    fakeVideoProgress.style.width = '0%';
-    return;
-  }
-
-  if (campaignVideo.ended || current >= duration - 0.05) {
-    fakeVideoProgress.style.width = '100%';
-    return;
-  }
-
-  const realRatio = Math.max(0, Math.min(0.999, current / duration));
-  let visualRatio;
-
-  if (realRatio <= 0.22) {
-    // Sensação de vídeo curto: a barra alcança cerca de 88% ainda no começo.
-    const phase = realRatio / 0.22;
-    visualRatio = 0.88 * (1 - Math.pow(1 - phase, 2.8));
-  } else if (realRatio <= 0.62) {
-    // Continua avançando, mas já reduz bastante a velocidade.
-    const phase = (realRatio - 0.22) / 0.40;
-    visualRatio = 0.88 + (0.97 - 0.88) * (1 - Math.pow(1 - phase, 1.8));
-  } else {
-    // Trecho final: percorre os últimos pixels devagar e só completa no fim real.
-    const phase = (realRatio - 0.62) / 0.38;
-    visualRatio = 0.97 + 0.029 * (1 - Math.pow(1 - phase, 2.2));
-  }
-
-  fakeVideoProgress.style.width = `${Math.min(99.9, visualRatio * 100).toFixed(2)}%`;
-}
-
-function updateVideoInterface() {
-  if (!campaignVideo) return;
-  const playing = !campaignVideo.paused && !campaignVideo.ended;
-  videoPlayOverlay?.classList.toggle('is-hidden', playing);
-  if (videoPlayOverlay) {
-    videoPlayOverlay.setAttribute('aria-label', playing ? 'Pausar vídeo' : 'Reproduzir vídeo');
-    const label = videoPlayOverlay.querySelector('strong');
-    if (label && !autoplayCountdownActive) label.textContent = campaignVideo.ended ? 'Assistir novamente' : (campaignVideo.paused && campaignVideo.currentTime > 0 ? 'Continuar assistindo' : 'Toque para assistir');
-  }
-  if (videoStatus) videoStatus.textContent = autoplayCountdownActive ? 'O vídeo começará automaticamente' : (campaignVideo.ended ? 'Vídeo concluído' : (playing ? 'Reproduzindo' : 'Vídeo pausado'));
-}
-
-async function toggleVideoPlayback() {
-  if (!campaignVideo) return;
-  try {
-    if (campaignVideo.ended) campaignVideo.currentTime = 0;
-    if (campaignVideo.paused) await campaignVideo.play();
-    else campaignVideo.pause();
-  } catch {}
-  updateVideoInterface();
-}
-
-function updateSoundInterface() {
-  if (!campaignVideo) return;
-  const muted = campaignVideo.muted || campaignVideo.volume === 0;
-  soundToggle?.setAttribute('aria-pressed', String(muted));
-  if (soundIcon) soundIcon.textContent = muted ? '🔇' : '🔊';
-  if (soundLabel) soundLabel.textContent = muted ? 'Ativar áudio' : 'Áudio ligado';
-  videoAudioPrompt?.classList.toggle('is-hidden', !muted || campaignVideo.paused || campaignVideo.ended);
-}
-
-if (campaignVideo) {
-  campaignVideo.controls = false;
-  campaignVideo.removeAttribute('controls');
-  campaignVideo.autoplay = false;
-  campaignVideo.muted = true;
-  campaignVideo.defaultMuted = true;
-  campaignVideo.volume = 1;
-  campaignVideo.playsInline = true;
-
-  const startVideoAutomatically = () => {
-    if (autoplayCountdownStarted) return;
-    autoplayCountdownStarted = true;
-    const label = document.querySelector('#videoCountdown');
-    videoPlayOverlay?.classList.remove('is-hidden');
-    if (label) label.textContent = 'Começando em 2...';
-    if (videoStatus) videoStatus.textContent = 'O vídeo começará automaticamente';
-
-    window.setTimeout(() => {
-      if (label) label.textContent = 'Começando em 1...';
-    }, 1000);
-
-    window.setTimeout(async () => {
-      autoplayCountdownActive = false;
-      try {
-        // Autoplay confiável: começa sem som e pede uma interação para ativar o áudio.
-        campaignVideo.muted = true;
-        campaignVideo.volume = 1;
-        await campaignVideo.play();
-        updateSoundInterface();
-      } catch {
-        if (label) label.textContent = 'Toque para assistir';
-        updateVideoInterface();
-      }
-    }, 2000);
-  };
-
-  campaignVideo.addEventListener('click', toggleVideoPlayback);
-  videoPlayOverlay?.addEventListener('click', toggleVideoPlayback);
-  const toggleVideoSound = () => {
-    campaignVideo.muted = !campaignVideo.muted;
-    if (!campaignVideo.muted) campaignVideo.volume = 1;
-    updateSoundInterface();
-  };
-  soundToggle?.addEventListener('click', toggleVideoSound);
-  videoAudioPrompt?.addEventListener('click', event => {
-    event.stopPropagation();
-    campaignVideo.muted = false;
-    campaignVideo.volume = 1;
-    updateSoundInterface();
-  });
-  ['loadedmetadata', 'timeupdate', 'seeking', 'seeked'].forEach(eventName => {
-    campaignVideo.addEventListener(eventName, updateVisualVideoProgress);
-  });
-  campaignVideo.addEventListener('play', () => {
-    updateVideoInterface();
-    startVisualProgressLoop();
-  });
-  campaignVideo.addEventListener('pause', () => {
-    updateVideoInterface();
-    stopVisualProgressLoop();
-    updateVisualVideoProgress();
-  });
-  campaignVideo.addEventListener('ended', () => {
-    updateVideoInterface();
-    stopVisualProgressLoop();
-  });
-  campaignVideo.addEventListener('volumechange', updateSoundInterface);
-  campaignVideo.addEventListener('ended', () => {
-    fakeVideoProgress.style.width = '100%';
-  });
-  updateVideoInterface();
-  updateSoundInterface();
-  startVideoAutomatically();
-}
-
+function initials(name){return name.split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase()}
 async function loadCampaign() {
-  if (!API) return;
-  try {
-    const response = await fetch(`${API}/api/campaign`, { cache: 'no-store' });
-    if (!response.ok) return;
-    const data = await response.json();
-    document.querySelector('#raised').textContent = money.format(data.raised);
-    document.querySelector('#goal').textContent = money.format(data.goal);
-    document.querySelector('#percent').textContent = `${data.percentage}%`;
-    document.querySelector('#bar').style.width = `${Math.min(100, data.percentage)}%`;
-  } catch {}
+  // Mantém os valores definidos no frontend (10% / R$ 3.538,95)
+  // sem sobrescrever com dados vindos da API.
+  return;
+}
+loadCampaign();
+
+const tabs=document.querySelectorAll('.tab');tabs.forEach(tab=>tab.addEventListener('click',()=>{tabs.forEach(t=>t.classList.toggle('active',t===tab));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===tab.dataset.tab));document.querySelector(`#${tab.dataset.tab}`).scrollIntoView({behavior:'smooth',block:'start'})}));
+
+document.querySelectorAll('[data-close-urgency]').forEach(b=>b.addEventListener('click',()=>setModalOpen(urgencyModal,false)));
+document.querySelectorAll('[data-quick-amount]').forEach(b=>b.addEventListener('click',()=>openDonation(b.dataset.quickAmount)));
+document.querySelector('[data-open-from-urgency]').addEventListener('click',()=>openDonation());
+setTimeout(()=>{if(!sessionStorage.getItem('urgencyShown')&&!donationModal.classList.contains('open')){sessionStorage.setItem('urgencyShown','1');setModalOpen(urgencyModal,true)}},12000);
+
+/* =========================================================
+   FOTO DO ORGANIZADOR E CURTIDAS DOS APOIOS
+========================================================= */
+
+function configureOrganizerPhoto() {
+  const image = document.querySelector('.organizer-avatar-image');
+  if (!image) return;
+
+  const hideBrokenImage = () => {
+    image.classList.add('is-missing');
+  };
+
+  image.addEventListener('error', hideBrokenImage);
+
+  if (image.complete && image.naturalWidth === 0) {
+    hideBrokenImage();
+  }
 }
 
-loadCampaign();
+const MAX_SUPPORTER_LIKES = 50;
+
+function supporterLikeKey(card, index) {
+  const name = card.querySelector('strong')?.textContent?.trim() || `apoio-${index}`;
+  const amount = card.querySelector('.supporter-amount')?.textContent?.trim() || 'sem-valor';
+
+  const normalizedName = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 90);
+
+  const normalizedAmount = amount
+    .replace(/[^0-9,.-]/g, '')
+    .replace(/[^0-9]/g, '')
+    .slice(0, 20);
+
+  return `${normalizedName || `apoio-${index}`}:${normalizedAmount || '0'}`;
+}
+
+function readSupporterLikeState(button) {
+  return {
+    liked: button.dataset.liked === 'true',
+    count: Math.max(0, Math.min(MAX_SUPPORTER_LIKES, Number(button.dataset.likeCount || 0))),
+    maxLikes: Math.max(1, Number(button.dataset.maxLikes || MAX_SUPPORTER_LIKES)),
+  };
+}
+
+function updateSupporterLikeButton(button, state = {}) {
+  const liked = Boolean(state.liked);
+  const maxLikes = Math.max(1, Number(state.maxLikes || MAX_SUPPORTER_LIKES));
+  const count = Math.max(0, Math.min(maxLikes, Number(state.count || 0)));
+  const loading = Boolean(state.loading);
+  const limitReached = count >= maxLikes && !liked;
+
+  button.dataset.liked = String(liked);
+  button.dataset.likeCount = String(count);
+  button.dataset.maxLikes = String(maxLikes);
+
+  button.classList.toggle('is-liked', liked);
+  button.classList.toggle('is-limit-reached', limitReached);
+  button.setAttribute('aria-pressed', String(liked));
+  button.disabled = loading || limitReached;
+
+  const actionText = limitReached
+    ? 'Limite atingido'
+    : liked
+      ? 'Curtido'
+      : 'Curtir';
+
+  button.setAttribute(
+    'aria-label',
+    limitReached
+      ? `Este apoio atingiu o limite de ${maxLikes} curtidas`
+      : liked
+        ? 'Descurtir este apoio'
+        : 'Curtir este apoio'
+  );
+
+  button.setAttribute(
+    'title',
+    limitReached
+      ? `Limite de ${maxLikes} curtidas atingido`
+      : liked
+        ? 'Descurtir'
+        : 'Curtir'
+  );
+
+  const label = button.querySelector('.supporter-like-label');
+  if (label) label.textContent = loading ? 'Salvando…' : actionText;
+
+  const countElement = button.querySelector('.supporter-like-count');
+  if (countElement) {
+    countElement.textContent = count === 1 ? '1 curtida' : `${count} curtidas`;
+    countElement.hidden = count === 0;
+  }
+}
+
+async function toggleSupporterLike(button) {
+  const previous = readSupporterLikeState(button);
+  const desiredLiked = !previous.liked;
+
+  updateSupporterLikeButton(button, {
+    ...previous,
+    loading: true,
+  });
+
+  try {
+    const response = await fetch(apiUrl('/api/supporters/like'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        supporterKey: button.dataset.supporterKey,
+        liked: desiredLiked,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Não foi possível atualizar a curtida.');
+    }
+
+    updateSupporterLikeButton(button, {
+      liked: data.liked,
+      count: data.count,
+      maxLikes: data.maxLikes || MAX_SUPPORTER_LIKES,
+    });
+  } catch (error) {
+    console.warn('Falha ao atualizar curtida:', error);
+    updateSupporterLikeButton(button, previous);
+  }
+}
+
+function createSupporterLikeButton(card, index) {
+  if (card.querySelector('.supporter-like-button')) return;
+
+  const content = card.querySelector(':scope > div:nth-child(2)');
+  if (!content) return;
+
+  const actions = document.createElement('div');
+  actions.className = 'supporter-actions';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'supporter-like-button';
+  button.dataset.supporterKey = supporterLikeKey(card, index);
+  button.innerHTML = `
+    <svg class="supporter-like-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7.8 21H4.5A1.5 1.5 0 0 1 3 19.5v-8A1.5 1.5 0 0 1 4.5 10h3.3v11Zm2 0V10.4l3.4-6.1c.4-.7 1.2-1.1 2-1 .9.2 1.5.9 1.5 1.8v3.4h2.7c1.5 0 2.6 1.4 2.2 2.8l-2 7.3A3.2 3.2 0 0 1 16.5 21H9.8Z"></path>
+    </svg>
+    <span class="supporter-like-label">Curtir</span>
+    <span class="supporter-like-count" hidden></span>
+  `;
+
+  updateSupporterLikeButton(button, {
+    liked: card.dataset.initialLiked === 'true',
+    count: Number(card.dataset.initialLikes || 0),
+    maxLikes: MAX_SUPPORTER_LIKES,
+  });
+
+  button.addEventListener('click', () => {
+    toggleSupporterLike(button);
+  });
+
+  actions.appendChild(button);
+  content.appendChild(actions);
+}
+
+function configureSupporterLikeButtons() {
+  document.querySelectorAll('.supporter-card').forEach((card, index) => {
+    createSupporterLikeButton(card, index);
+  });
+}
+
+async function loadSupporterLikeStatuses() {
+  const buttons = [...document.querySelectorAll('.supporter-like-button')];
+  const supporterKeys = [...new Set(
+    buttons
+      .map((button) => button.dataset.supporterKey)
+      .filter(Boolean)
+  )];
+
+  if (supporterKeys.length === 0) return;
+
+  try {
+    const response = await fetch(apiUrl('/api/supporters/likes/status'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ supporterKeys }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Não foi possível carregar as curtidas.');
+    }
+
+    const statusMap = new Map(
+      (data.supporters || []).map((item) => [item.supporterKey, item])
+    );
+
+    buttons.forEach((button) => {
+      const status = statusMap.get(button.dataset.supporterKey) || readSupporterLikeState(button);
+
+      updateSupporterLikeButton(button, {
+        liked: status.liked,
+        count: status.count,
+        maxLikes: data.maxLikes || MAX_SUPPORTER_LIKES,
+      });
+    });
+  } catch (error) {
+    console.warn('Falha ao carregar curtidas:', error);
+  }
+}
+
+configureOrganizerPhoto();
+configureSupporterLikeButtons();
+loadSupporterLikeStatuses();
+
+/* Também aplica o botão em apoiadores inseridos depois pela API. */
+const supporterListElement = document.querySelector('#supporter-list');
+let supporterLikeReloadTimer = null;
+
+if (supporterListElement) {
+  const supporterObserver = new MutationObserver(() => {
+    configureSupporterLikeButtons();
+    clearTimeout(supporterLikeReloadTimer);
+    supporterLikeReloadTimer = setTimeout(loadSupporterLikeStatuses, 80);
+  });
+
+  supporterObserver.observe(supporterListElement, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+
+/* =========================================================
+   PLAYER VSL — reprodução por toque e barra verde acelerada
+========================================================= */
+function configureCampaignVsl() {
+  const player = document.querySelector('[data-vsl-player]');
+  if (!player) return;
+
+  const video = player.querySelector('#campaign-vsl');
+  const toggleButtons = player.querySelectorAll('[data-vsl-toggle]');
+  const soundButton = player.querySelector('[data-vsl-sound]');
+  const progress = player.querySelector('[data-vsl-progress]');
+  const progressFill = player.querySelector('[data-vsl-progress-fill]');
+  const progressDot = player.querySelector('[data-vsl-progress-dot]');
+  const overlayTitle = player.querySelector('[data-vsl-overlay-title]');
+
+  if (!video || !progress || !progressFill || !progressDot) return;
+
+  let hasStarted = false;
+
+  function visualProgress(actualProgress) {
+    const normalized = Math.max(0, Math.min(1, actualProgress || 0));
+    if (normalized >= 0.999) return 1;
+
+    /*
+     * Curva de retenção da VSL:
+     * - 10% do vídeo real  -> barra em aproximadamente 32%;
+     * - 25% do vídeo real  -> barra em aproximadamente 66%;
+     * - 50% do vídeo real  -> barra em aproximadamente 87%;
+     * - 70% do vídeo real  -> barra em aproximadamente 94%;
+     * - 90% do vídeo real  -> barra em aproximadamente 98%;
+     * - 100% do vídeo real -> barra em 100%.
+     *
+     * Assim, a barra parece avançar muito rápido no começo e
+     * desacelera somente depois da metade, terminando junto com o vídeo.
+     */
+    if (normalized <= 0.5) {
+      const acceleratedStart = normalized / 0.5;
+      return 0.87 * (1 - Math.pow(1 - acceleratedStart, 2.05));
+    }
+
+    const slowFinish = (normalized - 0.5) / 0.5;
+    return 0.87 + 0.13 * Math.pow(slowFinish, 0.72);
+  }
+
+  function updateVslProgress() {
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const actual = duration > 0 ? video.currentTime / duration : 0;
+    const visual = video.ended ? 1 : visualProgress(actual);
+    const percentage = Math.max(0, Math.min(100, visual * 100));
+
+    progressFill.style.width = `${percentage}%`;
+    progressDot.style.left = `${percentage}%`;
+    progress.setAttribute('aria-valuenow', String(Math.round(percentage)));
+  }
+
+  function syncVslState() {
+    const isPlaying = !video.paused && !video.ended;
+    player.classList.toggle('is-playing', isPlaying);
+    player.classList.toggle('has-started', hasStarted);
+    player.classList.toggle('is-ended', video.ended);
+    player.classList.toggle('is-muted', video.muted || video.volume === 0);
+
+    toggleButtons.forEach((button) => {
+      button.setAttribute('aria-label', isPlaying ? 'Pausar vídeo' : 'Reproduzir vídeo');
+    });
+
+    if (soundButton) {
+      soundButton.setAttribute(
+        'aria-label',
+        video.muted || video.volume === 0 ? 'Ativar som' : 'Desativar som'
+      );
+    }
+
+    if (overlayTitle) {
+      overlayTitle.textContent = video.ended
+        ? 'Assistir novamente'
+        : hasStarted
+          ? 'Continuar vídeo'
+          : 'Toque para assistir';
+    }
+  }
+
+  async function toggleVslPlayback() {
+    if (video.ended) {
+      video.currentTime = 0;
+    }
+
+    if (!video.paused && !video.ended) {
+      video.pause();
+      return;
+    }
+
+    hasStarted = true;
+    video.muted = false;
+    video.volume = 1;
+
+    try {
+      await video.play();
+    } catch (error) {
+      console.warn('Não foi possível iniciar o vídeo com som:', error);
+      syncVslState();
+    }
+  }
+
+  toggleButtons.forEach((button) => {
+    button.addEventListener('click', toggleVslPlayback);
+  });
+
+  video.addEventListener('click', toggleVslPlayback);
+
+  soundButton?.addEventListener('click', () => {
+    video.muted = !video.muted;
+    if (!video.muted && video.volume === 0) video.volume = 1;
+    syncVslState();
+  });
+
+  video.addEventListener('loadedmetadata', updateVslProgress);
+  video.addEventListener('durationchange', updateVslProgress);
+  video.addEventListener('timeupdate', updateVslProgress);
+  video.addEventListener('play', () => {
+    hasStarted = true;
+    syncVslState();
+  });
+  video.addEventListener('pause', syncVslState);
+  video.addEventListener('ended', () => {
+    updateVslProgress();
+    syncVslState();
+  });
+  video.addEventListener('volumechange', syncVslState);
+
+  updateVslProgress();
+  syncVslState();
+}
+
+configureCampaignVsl();
+
+
+/* Proteção visual contra cópia casual.
+   Campos do checkout continuam editáveis e o botão Copiar PIX continua funcionando. */
+const isEditableTarget = (target) => Boolean(
+  target?.closest?.('input, textarea, select, [contenteditable="true"]')
+);
+
+document.addEventListener('contextmenu', (event) => {
+  if (!isEditableTarget(event.target)) event.preventDefault();
+});
+
+document.addEventListener('dragstart', (event) => {
+  if (event.target instanceof HTMLImageElement || !isEditableTarget(event.target)) {
+    event.preventDefault();
+  }
+});
+
+document.addEventListener('selectstart', (event) => {
+  if (!isEditableTarget(event.target)) event.preventDefault();
+});
+
+document.addEventListener('keydown', (event) => {
+  const key = event.key.toLowerCase();
+  const blockedShortcut = (event.ctrlKey || event.metaKey) && ['c', 'a', 's', 'u', 'p'].includes(key);
+  if (blockedShortcut && !isEditableTarget(event.target)) {
+    event.preventDefault();
+  }
+});

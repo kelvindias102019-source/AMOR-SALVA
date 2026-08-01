@@ -5,7 +5,8 @@ import helmet from 'helmet';
 import QRCode from 'qrcode';
 import crypto from 'node:crypto';
 import {createPix,getDeposit} from './veopag.js';
-import {insertDonation,updateDonation,getDonation,getPendingDonations,paidTotal,getRandomTestPayer,registerWebhookEvent} from './database.js';
+import {insertDonation,updateDonation,getDonation,getPendingDonations,paidTotal,getRandomTestPayer,registerWebhookEvent,claimMetaPurchase,markMetaPurchaseSent,markMetaPurchaseFailed} from './database.js';
+import {isMetaCapiConfigured,sendMetaPurchase} from './meta.js';
 
 const app=express();
 app.set('trust proxy',1);
@@ -28,7 +29,27 @@ const createLimiter=memoryRateLimit({windowMs:15*60_000,limit:Number(process.env
 const statusLimiter=memoryRateLimit({windowMs:60_000,limit:30,message:'Muitas consultas. Aguarde um momento.'});
 app.use('/api',globalLimiter);
 
-app.get('/health',(_,res)=>res.json({ok:true,service:'maria-sonia-ana-julia',provider:'veopag',webhook:'/webhooks/veopag'}));
+app.get('/health',(_,res)=>res.json({ok:true,service:'maria-sonia-ana-julia',provider:'veopag',webhook:'/webhooks/veopag',metaCapi:isMetaCapiConfigured()}));
+
+async function dispatchMetaPurchase(externalReference){
+  if(!isMetaCapiConfigured()){
+    logError('meta_capi',{code:'META_CAPI_NOT_CONFIGURED'});
+    return {sent:false,reason:'not_configured'};
+  }
+  let claimed;
+  try{
+    claimed=await claimMetaPurchase(externalReference);
+    if(!claimed)return {sent:false,reason:'already_sent_or_claimed'};
+    const result=await sendMetaPurchase(claimed);
+    await markMetaPurchaseSent(externalReference,{eventId:result.eventId,response:result.response});
+    console.log('meta_purchase_sent',{externalReference,eventId:result.eventId,eventsReceived:result.response?.events_received});
+    return {sent:true,eventId:result.eventId};
+  }catch(error){
+    try{await markMetaPurchaseFailed(externalReference,error);}catch(dbError){logError('meta_capi_mark_failed',dbError,{externalReference});}
+    logError('meta_capi',error,{externalReference});
+    return {sent:false,reason:'send_failed'};
+  }
+}
 
 async function veopagWebhookHandler(req,res){
   try{
@@ -55,6 +76,7 @@ async function veopagWebhookHandler(req,res){
     };
     if(status==='COMPLETED')patch.paid_at=event?.updated_at||new Date().toISOString();
     await updateDonation(externalReference,patch);
+    if(status==='COMPLETED')await dispatchMetaPurchase(externalReference);
     return res.sendStatus(204);
   }catch(error){
     logError('veopag_webhook',error);
@@ -101,6 +123,12 @@ app.post('/api/donations/create',createLimiter,requireJson,requireAllowedOrigin,
       show_public:!useTestPayers&&Boolean(submittedName)&&req.body?.showPublic===true,pix_copy_paste:pixCode,
       metadata:{test_payer:useTestPayers,request_id:requestId,idempotent:transaction.idempotent},
       provider_payload:transaction.raw,...safeTracking(req.body),
+      fbp:cleanText(req.body?.fbp,255)||null,
+      fbc:cleanText(req.body?.fbc,500)||null,
+      client_ip_address:String(req.ip||'').replace(/^::ffff:/,'').slice(0,64)||null,
+      client_user_agent:cleanText(req.get('user-agent'),1000)||null,
+      event_source_url:cleanEventSourceUrl(req.body?.event_source_url),
+      meta_event_id:externalId,
       created_at:new Date().toISOString(),updated_at:new Date().toISOString()
     });
     return res.json({externalId,amount,qrImage,pixCode,expiresAt:null});
@@ -116,6 +144,7 @@ app.get('/api/donations/:id/status',statusLimiter,requireAllowedOrigin,async(req
     if(!/^amor_\d+_[a-f0-9]{24}$/.test(id))return res.status(400).json({error:'Identificador inválido.'});
     const donation=await getDonation(id);
     if(!donation)return res.status(404).json({error:'Doação não encontrada.'});
+    if(donation.status==='COMPLETED'&&!donation.meta_event_sent_at)dispatchMetaPurchase(id).catch(()=>{});
     return res.json({status:donation.status,amount:Number(donation.amount_cents||0)/100});
   }catch(error){logError('donation_status',error);return res.status(500).json({error:'Falha ao consultar pagamento.'});}
 });
@@ -149,6 +178,7 @@ function memoryRateLimit({windowMs,limit,message}){
 function requireJson(req,res,next){if(!req.is('application/json'))return res.status(415).json({error:'Formato não suportado.'});next();}
 function requireAllowedOrigin(req,res,next){const origin=String(req.get('origin')||'').replace(/\/$/,'');if(!origin||!origins.includes(origin))return res.status(403).json({error:'Origem não autorizada.'});next();}
 function cleanText(value,max){return String(value||'').replace(/[<>\u0000-\u001F]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);}
+function cleanEventSourceUrl(value){try{const url=new URL(String(value||process.env.META_EVENT_SOURCE_URL||''));if(!['https:','http:'].includes(url.protocol))return null;return `${url.origin}${url.pathname}`.slice(0,1000);}catch{return String(process.env.META_EVENT_SOURCE_URL||'').trim()||null;}}
 function safeTracking(body={}){const out={};for(const k of ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid','ttclid'])out[k]=cleanText(body[k],200)||null;return out;}
 async function verifyTurnstile(token,ip){
   const enabled=String(process.env.TURNSTILE_ENABLED||'false').toLowerCase()==='true';
@@ -199,6 +229,7 @@ async function reconcilePendingDonations(){
         Object.keys(patch).forEach((key)=>patch[key]===undefined&&delete patch[key]);
         if(status==='COMPLETED')patch.paid_at=remote?.updated_at||new Date().toISOString();
         await updateDonation(donation.external_reference,patch);
+        if(status==='COMPLETED')await dispatchMetaPurchase(donation.external_reference);
       }catch(error){logError('reconcile_item',error,{externalReference:donation.external_reference});}
     }
   }catch(error){logError('reconcile_pending',error);}

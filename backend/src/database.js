@@ -28,7 +28,7 @@ export async function updateDonation(ref,patch){
 export async function getDonation(ref){
   if(!db)return null;
   const{data,error}=await db.from('donations')
-    .select('external_reference,status,amount_cents,paid_at,pix_expires_at')
+    .select('*')
     .eq('external_reference',ref)
     .maybeSingle();
   if(error)throw error;
@@ -112,4 +112,53 @@ export async function registerWebhookEvent({eventId,eventType,payload}){
   if(error?.code==='23505')return {duplicate:true};
   if(error)throw error;
   return {duplicate:false};
+}
+
+export async function claimMetaPurchase(externalReference){
+  if(!db)return null;
+  const{data,error}=await db.rpc('claim_meta_purchase',{
+    p_external_reference:String(externalReference||'')
+  });
+  if(error)throw error;
+  return Array.isArray(data)?(data[0]||null):(data||null);
+}
+
+export async function markMetaPurchaseSent(externalReference,{eventId,response}){
+  if(!db)return null;
+  const{data,error}=await db.from('donations')
+    .update({
+      meta_event_id:eventId,
+      meta_event_status:'SENT',
+      meta_event_sent_at:new Date().toISOString(),
+      meta_event_response:response||{},
+      meta_event_error:null,
+      updated_at:new Date().toISOString()
+    })
+    .eq('external_reference',externalReference)
+    .select()
+    .maybeSingle();
+  if(error)throw error;
+  return data;
+}
+
+export async function markMetaPurchaseFailed(externalReference,error){
+  if(!db)return null;
+  const details={
+    name:error?.name||'Error',
+    code:error?.code||null,
+    status:error?.status||null,
+    message:String(error?.message||'META_CAPI_ERROR').slice(0,1000),
+    response:error?.response||null
+  };
+  const{data, error:dbError}=await db.from('donations')
+    .update({
+      meta_event_status:'FAILED',
+      meta_event_error:details,
+      updated_at:new Date().toISOString()
+    })
+    .eq('external_reference',externalReference)
+    .select()
+    .maybeSingle();
+  if(dbError)throw dbError;
+  return data;
 }

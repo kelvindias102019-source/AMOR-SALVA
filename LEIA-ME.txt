@@ -1,0 +1,46 @@
+IMPLEMENTAÇÃO META CONVERSIONS API — VEOPAG
+
+1. Execute primeiro:
+   supabase/meta-conversions-api.sql
+
+2. Substitua no projeto:
+   backend/src/server.js
+   backend/src/database.js
+   frontend/src/main.js
+
+3. Adicione o novo arquivo:
+   backend/src/meta.js
+
+4. No Render, adicione:
+   META_PIXEL_ID=2279794442426700
+   META_CAPI_ACCESS_TOKEN=TOKEN_GERADO_PELA_META
+   META_API_VERSION=v23.0
+   META_EVENT_SOURCE_URL=https://institutodoacao.online
+   META_CAPI_TIMEOUT_MS=12000
+
+5. Para testar no Gerenciador de Eventos, adicione temporariamente:
+   META_TEST_EVENT_CODE=SEU_CODIGO_DE_TESTE
+
+   Depois do teste, apague META_TEST_EVENT_CODE.
+
+6. Faça deploy do backend no Render e do frontend na Vercel.
+
+7. Acesse /health no backend. O retorno deve mostrar:
+   "metaCapi": true
+
+8. Ao confirmar uma venda, o log do Render deve mostrar:
+   meta_purchase_sent
+
+O evento Purchase usa:
+- event_id igual ao external_reference da cobrança;
+- currency BRL;
+- value real da venda;
+- fbp/fbc, IP e user-agent quando disponíveis;
+- deduplicação com o Purchase do Pixel no navegador.
+
+O token da Meta nunca deve ficar no frontend ou na Vercel.
+
+IMPORTANTE:
+A CAPI não remove bloqueios de categoria/restrições do domínio na Meta.
+Se o domínio estiver em configuração básica/restrita, o evento pode chegar
+mas ainda ser bloqueado ou não usado para otimização.
