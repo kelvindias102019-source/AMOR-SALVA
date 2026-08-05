@@ -490,13 +490,30 @@ document.querySelector('#donorForm').addEventListener('submit', async e => {
   }
 });
 
+function readCookie(name) {
+  const prefix = `${name}=`;
+  const part = document.cookie.split(';').map(item => item.trim()).find(item => item.startsWith(prefix));
+  return part ? decodeURIComponent(part.slice(prefix.length)) : '';
+}
+
 function tracking() {
   const params = new URLSearchParams(location.search);
   const output = {};
   ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid','ttclid'].forEach(key => {
-    const value = params.get(key);
-    if (value) output[key] = value;
+    const value = params.get(key) || sessionStorage.getItem(`tracking_${key}`) || '';
+    if (value) {
+      output[key] = value;
+      sessionStorage.setItem(`tracking_${key}`, value);
+    }
   });
+
+  const fbp = readCookie('_fbp');
+  const cookieFbc = readCookie('_fbc');
+  const fbclid = output.fbclid || '';
+  if (fbp) output.fbp = fbp;
+  if (cookieFbc) output.fbc = cookieFbc;
+  else if (fbclid) output.fbc = `fb.1.${Date.now()}.${fbclid}`;
+  output.event_source_url = `${location.origin}${location.pathname}`;
   return output;
 }
 

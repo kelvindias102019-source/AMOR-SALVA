@@ -64,7 +64,12 @@ async function veopagWebhookHandler(req,res){
 
     const eventId=`${transactionId}:${String(event?.status||'UNKNOWN').toUpperCase()}`;
     const registration=await registerWebhookEvent({eventId,eventType:`Deposit.${event?.status||'UNKNOWN'}`,payload:event});
-    if(registration.duplicate)return res.sendStatus(204);
+    // Mesmo em retry/duplicata, reaplica a atualização idempotente.
+    // Isso evita perder a confirmação caso uma tentativa anterior tenha registrado
+    // o webhook, mas falhado antes de atualizar a doação ou enviar a CAPI.
+    if(registration.duplicate){
+      console.log('veopag_webhook_duplicate_retry',{externalReference,transactionId,status});
+    }
 
     const patch={
       status,
@@ -210,7 +215,17 @@ function timingSafeStringEqual(a,b){
   const y=Buffer.from(String(b||''),'utf8');
   return x.length===y.length&&crypto.timingSafeEqual(x,y);
 }
-function logError(scope,error,extra={}){console.error(scope,{...extra,name:error?.name||'Error',code:error?.code||error?.message||'unknown',status:error?.status||undefined});}
+function logError(scope,error,extra={}){
+  console.error(scope,{
+    ...extra,
+    name:error?.name||'Error',
+    code:error?.code||'unknown',
+    status:error?.status||error?.response?.status||undefined,
+    message:String(error?.message||'').slice(0,1000),
+    providerCode:error?.response?.error?.code||error?.response?.code||undefined,
+    providerMessage:error?.response?.error?.message||error?.response?.message||undefined
+  });
+}
 async function reconcilePendingDonations(){
   try{
     const pending=await getPendingDonations();

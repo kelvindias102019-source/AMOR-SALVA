@@ -78,6 +78,7 @@ export async function sendMetaPurchase(donation) {
     custom_data: {
       currency: 'BRL',
       value: Number(amount.toFixed(2)),
+      order_id: donation.external_reference,
     },
   };
 
