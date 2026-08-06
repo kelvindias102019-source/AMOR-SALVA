@@ -45,7 +45,9 @@ function buildUserData(donation) {
 }
 
 export function isMetaCapiConfigured() {
+  const enabled = String(process.env.META_CAPI_ENABLED || 'false').toLowerCase() === 'true';
   return Boolean(
+    enabled &&
     clean(process.env.META_PIXEL_ID) &&
     clean(process.env.META_CAPI_ACCESS_TOKEN) &&
     clean(process.env.META_API_VERSION)
@@ -78,7 +80,6 @@ export async function sendMetaPurchase(donation) {
     custom_data: {
       currency: 'BRL',
       value: Number(amount.toFixed(2)),
-      order_id: donation.external_reference,
     },
   };
 

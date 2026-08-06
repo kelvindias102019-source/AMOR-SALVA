@@ -29,11 +29,3 @@ Cadastre o webhook:
 
 ## VSL
 O vídeo da campanha está em `frontend/public/assets/historia-amor-salva.mp4`. A barra abaixo do vídeo usa progresso visual não linear e só chega a 100% quando o vídeo termina.
-
-
-## REVISÃO TÉCNICA FINAL
-
-- A captura Meta aceita estados `PENDING`, `FAILED` e processamento travado.
-- A reivindicação usa `meta_event_attempts` como trava otimista para reduzir disparos concorrentes.
-- Webhooks duplicados são reprocessados de forma idempotente, evitando perda de confirmação após falha parcial.
-- `META_API_VERSION` foi atualizado para `v24.0`; confirme no painel da Meta antes de futuros upgrades.

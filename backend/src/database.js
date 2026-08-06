@@ -116,37 +116,11 @@ export async function registerWebhookEvent({eventId,eventType,payload}){
 
 export async function claimMetaPurchase(externalReference){
   if(!db)return null;
-  const reference=String(externalReference||'');
-  const donation=await getDonation(reference);
-  if(!donation||donation.status!=='COMPLETED'||donation.meta_event_sent_at)return null;
-
-  const lastAttempt=donation.meta_event_last_attempt_at
-    ?Date.parse(donation.meta_event_last_attempt_at)
-    :0;
-  const staleProcessing=donation.meta_event_status==='PROCESSING'&&
-    (!Number.isFinite(lastAttempt)||lastAttempt<Date.now()-10*60_000);
-  const canClaim=!donation.meta_event_status||
-    donation.meta_event_status==='PENDING'||
-    donation.meta_event_status==='FAILED'||
-    staleProcessing;
-  if(!canClaim)return null;
-
-  const{data,error}=await db.from('donations')
-    .update({
-      meta_event_id:donation.meta_event_id||reference,
-      meta_event_status:'PROCESSING',
-      meta_event_attempts:Number(donation.meta_event_attempts||0)+1,
-      meta_event_last_attempt_at:new Date().toISOString(),
-      updated_at:new Date().toISOString()
-    })
-    .eq('external_reference',reference)
-    .eq('status','COMPLETED')
-    .eq('meta_event_attempts',Number(donation.meta_event_attempts||0))
-    .is('meta_event_sent_at',null)
-    .select('*')
-    .maybeSingle();
+  const{data,error}=await db.rpc('claim_meta_purchase',{
+    p_external_reference:String(externalReference||'')
+  });
   if(error)throw error;
-  return data||null;
+  return Array.isArray(data)?(data[0]||null):(data||null);
 }
 
 export async function markMetaPurchaseSent(externalReference,{eventId,response}){
