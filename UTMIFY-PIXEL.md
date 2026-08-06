@@ -1,11 +1,11 @@
 # Pixel UTMify
 
-O frontend usa o pixel UTMify informado pelo proprietário da campanha.
+O código original fornecido pela UTMify está inserido diretamente no `<head>` do `frontend/index.html`.
 
-- Bootstrap local: `frontend/public/utmify-pixel.js`
-- Script carregado pela UTMify: `https://cdn.utmify.com.br/scripts/pixel/pixel.js`
-- Pixel ID decodificado do snippet: `6a72bc280a5131ed00239393`
-- A Meta CAPI própria do backend fica desativada por padrão com `META_CAPI_ENABLED=false`.
+Pixel ID decodificado: `6a72bc280a5131ed00239393`.
 
-No Render, mantenha `META_CAPI_ENABLED=false` para evitar envio duplicado de Purchase.
-A UTMify ainda precisa estar conectada ao Pixel correto da Meta e configurada para enviar vendas aprovadas.
+A CSP da Vercel autoriza o script inline somente pelo hash SHA-256 e libera o CDN da UTMify.
+
+Hash CSP: `sha256-gmytPIvH6/GIy7InOPBOaNrva/TmtQhC+Uv8B3fnQe4=`
+
+O arquivo externo local `frontend/public/utmify-pixel.js` foi removido para evitar carregamento duplicado e para que o verificador da UTMify encontre o snippet diretamente no HTML.
